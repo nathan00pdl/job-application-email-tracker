@@ -8,7 +8,7 @@ See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full design.
 
 - Java 25
 - Maven 3.9+
-- Docker (for the local PostgreSQL instance)
+- Docker (for the local PostgreSQL instance, and for Testcontainers during the build)
 
 ## Local setup
 
@@ -33,8 +33,15 @@ locally and in CI — see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 mvn clean verify
 ```
 
+Integration tests start their own disposable PostgreSQL container, so `docker compose`
+does not need to be running for them.
+
 ## Run locally
 
 ```bash
+set -a && source .env && set +a
 mvn spring-boot:run
 ```
+
+The datasource credentials have no defaults: the application fails fast if
+`DATASOURCE_USERNAME` / `DATASOURCE_PASSWORD` are not set.
