@@ -1,3 +1,18 @@
 spring:
   application:
     name: job-application-email-tracker
+
+  datasource:
+    # Only the URL has a default, and it points at the local Docker Compose instance.
+    # Credentials have no default on purpose: the application fails to start rather
+    # than silently falling back to a hardcoded user/password.
+    url: ${DATASOURCE_URL:jdbc:postgresql://localhost:5432/jobtracker}
+    username: ${DATASOURCE_USERNAME}
+    password: ${DATASOURCE_PASSWORD}
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # The schema is created exclusively by migrations, so there is nothing to
+    # baseline over: an empty database must run V1 from scratch.
+    baseline-on-migrate: false

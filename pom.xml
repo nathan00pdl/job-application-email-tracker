@@ -19,7 +19,23 @@
 
     <properties>
         <java.version>25</java.version>
+        <testcontainers.version>2.0.5</testcontainers.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Spring Boot 4's BOM no longer manages the Testcontainers modules, so
+                 their own BOM is imported to keep every testcontainers artifact on a
+                 single, consistent version. -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -27,11 +43,57 @@
             <artifactId>spring-boot-starter</artifactId>
         </dependency>
 
+        <!-- DataSource + JdbcTemplate. Spring Data JPA arrives with the persistence
+             adapter; at this stage only Flyway needs a connection pool. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Spring Boot 4 split the autoconfigurations out of spring-boot-autoconfigure
+             into per-technology modules. flyway-core alone puts Flyway on the classpath
+             but nothing wires it up, so migrations would silently never run: this module
+             is what provides FlywayAutoConfiguration (and it brings flyway-core along). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-flyway</artifactId>
+        </dependency>
+
+        <!-- Since Flyway 10 each database engine lives in its own module; without
+             this one Flyway starts and then fails to recognise the PostgreSQL URL. -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- Integration tests run against a real, disposable PostgreSQL container.
+             @ServiceConnection (spring-boot-testcontainers) redirects the application's
+             DataSource to it, so the migrations under test are the production ones. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>

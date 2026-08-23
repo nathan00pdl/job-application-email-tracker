@@ -8,6 +8,24 @@ See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full design.
 
 - Java 25
 - Maven 3.9+
+- Docker (local PostgreSQL, and Testcontainers during the build)
+
+## Local setup
+
+Create your `.env` from the template and fill in the blank passwords:
+
+```bash
+cp .env.example .env
+```
+
+Start the database and wait until it is accepting connections:
+
+```bash
+docker compose up -d --wait
+```
+
+Only PostgreSQL is containerized. The application runs directly on the JVM, both
+locally and in CI — see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ## Build & test
 
@@ -15,8 +33,17 @@ See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full design.
 mvn clean verify
 ```
 
+Integration tests start their own disposable PostgreSQL container, so `docker compose`
+does not need to be running for them.
+
 ## Run locally
 
+Flyway applies any pending migrations on startup:
+
 ```bash
+set -a && source .env && set +a
 mvn spring-boot:run
 ```
+
+The datasource credentials have no defaults: the application fails fast if
+`DATASOURCE_USERNAME` / `DATASOURCE_PASSWORD` are not set.
