@@ -9,3 +9,10 @@ spring:
     url: ${DATASOURCE_URL:jdbc:postgresql://localhost:5432/jobtracker}
     username: ${DATASOURCE_USERNAME}
     password: ${DATASOURCE_PASSWORD}
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # The schema is created exclusively by migrations, so there is nothing to
+    # baseline over: an empty database must run V1 from scratch.
+    baseline-on-migrate: false

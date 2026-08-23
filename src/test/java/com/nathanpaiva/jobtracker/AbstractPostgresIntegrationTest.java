@@ -16,8 +16,8 @@ import org.testcontainers.utility.DockerImageName;
  * the JVM own the container avoids that: Testcontainers' reaper removes it on exit.
  *
  * <p>{@code @ServiceConnection} feeds the container's real URL, username and password
- * into the application's DataSource, so tests exercise the same configuration the
- * application uses in production rather than a test-only substitute.
+ * into the application's DataSource, so Flyway runs the production migrations against
+ * it and tests exercise the same configuration the application uses in production.
  */
 @SpringBootTest(properties = {
         // The production configuration deliberately gives the datasource credentials no
