@@ -1,10 +1,12 @@
 package com.nathanpaiva.jobtracker;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
-class JobApplicationEmailTrackerApplicationTests {
+/**
+ * Smoke test: the Spring context starts. Now that the application owns a DataSource,
+ * that also means it successfully connected to a real PostgreSQL server.
+ */
+class JobApplicationEmailTrackerApplicationTests extends AbstractPostgresIntegrationTest {
 
     @Test
     void contextLoads() {
