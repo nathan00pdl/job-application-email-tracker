@@ -38,6 +38,8 @@ does not need to be running for them.
 
 ## Run locally
 
+Flyway applies any pending migrations on startup:
+
 ```bash
 set -a && source .env && set +a
 mvn spring-boot:run

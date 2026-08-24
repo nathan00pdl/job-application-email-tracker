@@ -56,6 +56,23 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Spring Boot 4 split the autoconfigurations out of spring-boot-autoconfigure
+             into per-technology modules. flyway-core alone puts Flyway on the classpath
+             but nothing wires it up, so migrations would silently never run: this module
+             is what provides FlywayAutoConfiguration (and it brings flyway-core along). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-flyway</artifactId>
+        </dependency>
+
+        <!-- Since Flyway 10 each database engine lives in its own module; without
+             this one Flyway starts and then fails to recognise the PostgreSQL URL. -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
