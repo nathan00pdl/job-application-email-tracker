@@ -1,6 +1,6 @@
 # job-application-email-tracker
 
-A daily job that scans a Gmail inbox for job-application-related emails, classifies them with a rules filter + Claude, persists the results in PostgreSQL, mirrors them into a Google Sheet, and sends a WhatsApp daily summary.
+A daily job that scans a Gmail inbox for emails about job applications, classifies them with a rules filter + Claude, saves the results in PostgreSQL, copies them into a Google Sheet, and sends a daily summary over WhatsApp.
 
 See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full design.
 
@@ -18,13 +18,13 @@ Create your `.env` from the template and fill in the blank password:
 cp .env.example .env
 ```
 
-Start the database and wait until it is accepting connections:
+Start the database and wait until it accepts connections:
 
 ```bash
 docker compose up -d --wait
 ```
 
-Only PostgreSQL is containerized. The application runs directly on the JVM, both
+Only PostgreSQL runs in a container. The application runs directly on the JVM, both
 locally and in CI — see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ## Build & test
@@ -33,8 +33,8 @@ locally and in CI — see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 mvn clean verify
 ```
 
-Integration tests start their own disposable PostgreSQL container, so `docker compose`
-does not need to be running for them.
+The integration tests start their own temporary PostgreSQL container, so
+`docker compose` does not have to be running for them.
 
 ## Run locally
 
@@ -45,5 +45,5 @@ set -a && source .env && set +a
 mvn spring-boot:run
 ```
 
-The datasource credentials have no defaults: the application fails fast if
-`DATASOURCE_USERNAME` / `DATASOURCE_PASSWORD` are not set.
+The database username and password have no default value: the application will not
+start if `DATASOURCE_USERNAME` and `DATASOURCE_PASSWORD` are not set.

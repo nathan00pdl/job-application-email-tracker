@@ -11,12 +11,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Verifies V1__create_email_classifications.sql against a real PostgreSQL.
+ * Checks V1__create_email_classifications.sql against a real PostgreSQL.
  *
- * <p>These assertions are about behaviour the application depends on but does not
- * implement itself — most importantly the unique constraint on {@code gmail_message_id},
- * which is the entire basis for the daily job being safe to re-run. An in-memory
- * database would not prove any of it, since it would not run this same DDL.
+ * <p>These tests cover behaviour the application depends on but does not write itself.
+ * The most important one is the unique constraint on {@code gmail_message_id}, which is
+ * the only reason the daily job is safe to run again. An in-memory database would prove
+ * none of this, because it would not run this same DDL.
  */
 class EmailClassificationsSchemaIntegrationTest extends AbstractPostgresIntegrationTest {
 
@@ -66,12 +66,12 @@ class EmailClassificationsSchemaIntegrationTest extends AbstractPostgresIntegrat
         assertThat(row.get("is_urgent")).isEqualTo(false);
         assertThat(row.get("has_disagreement")).isEqualTo(false);
         assertThat(row.get("included_in_digest")).isEqualTo(false);
-        // NULL is what the Sheet sync step selects on to find rows not mirrored yet.
+        // The Sheet sync step looks for NULL here to find rows not copied yet.
         assertThat(row.get("sheet_synced_at")).isNull();
         assertThat(row.get("created_at")).isNotNull();
     }
 
-    /** Inserts a row supplying only the NOT NULL columns that have no default. */
+    /** Inserts a row with only the NOT NULL columns that have no default value. */
     private void insertClassification(String gmailMessageId) {
         jdbcTemplate.update("""
                 INSERT INTO email_classifications (
