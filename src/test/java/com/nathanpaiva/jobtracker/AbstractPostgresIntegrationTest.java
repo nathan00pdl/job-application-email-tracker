@@ -8,31 +8,33 @@ import org.testcontainers.utility.DockerImageName;
 /**
  * Base class for tests that need a real database.
  *
- * <p>The container is a singleton: it is started once in a static initializer and
- * deliberately never stopped by a test-class lifecycle. Testcontainers' own JUnit
- * extension ({@code @Testcontainers} + {@code @Container}) would stop it after each
- * test class and start a fresh one for the next, which changes the randomly mapped
- * port while Spring's cached application context still points at the old one. Letting
- * the JVM own the container avoids that: Testcontainers' reaper removes it on exit.
+ * <p>The container is a singleton: it starts once in a static block and is never
+ * stopped by a test class. Testcontainers' own JUnit extension ({@code @Testcontainers}
+ * plus {@code @Container}) would stop it after each test class and start a new one for
+ * the next. The new container gets a different random port, but Spring reuses the
+ * application context it cached, which still points at the old one. Letting the JVM own
+ * the container avoids this: Testcontainers removes it when the JVM exits.
  *
- * <p>{@code @ServiceConnection} feeds the container's real URL, username and password
- * into the application's DataSource, so Flyway runs the production migrations against
- * it and tests exercise the same configuration the application uses in production.
+ * <p>{@code @ServiceConnection} passes the container's real URL, username and password
+ * to the application's DataSource. Flyway then runs the same migrations used in
+ * production, and the tests use the same configuration as the application.
  */
 @SpringBootTest(properties = {
-        // The production configuration deliberately gives the datasource credentials no
-        // default, so a misconfigured deployment fails at startup instead of connecting
-        // as some hardcoded user. Tests therefore have to supply *something* for the
-        // placeholders to bind against; @ServiceConnection then replaces all of it with
-        // the container's real values before any connection is opened. Overriding these
-        // two keys — rather than shipping a test application.yml, which would shadow the
-        // real one entirely — keeps that file as the single source of truth.
+        // The real configuration gives the database username and password no default
+        // value on purpose, so a badly configured deployment fails at startup instead of
+        // connecting as some hardcoded user. Tests still have to provide something for
+        // those two keys, and @ServiceConnection then replaces it with the container's
+        // real values before any connection is opened. Overriding the keys here, instead
+        // of adding a test application.yml, keeps the real file as the only source of
+        // configuration: Spring loads only one application.yml, and the one on the test
+        // classpath would hide everything else in it.
         "spring.datasource.username=replaced-by-service-connection",
         "spring.datasource.password=replaced-by-service-connection"
 })
 abstract class AbstractPostgresIntegrationTest {
 
-    /** Must match the image pinned in docker-compose.yml, so tests and local dev agree. */
+    /** Must match the image pinned in docker-compose.yml, so tests and local development
+        use the same version. */
     private static final DockerImageName POSTGRES_IMAGE =
             DockerImageName.parse("postgres:17.11-alpine");
 

@@ -1,11 +1,11 @@
-# Local development database only.
-# The application itself is not containerized: it runs via Maven/JVM locally and
-# inside the GitHub Actions runner in production (see ARCHITECTURE.md).
+# Database for local development only.
+# The application does not run in a container: it runs with Maven on the JVM, both
+# locally and inside the GitHub Actions runner in production (see ARCHITECTURE.md).
 services:
   postgres:
-    # Pinned to an exact patch version, never `latest`, so every machine and every
-    # CI run gets byte-identical behaviour. Should track the major version used by
-    # Neon in production.
+    # Pinned to an exact patch version, never `latest`, so every machine and every CI
+    # run behaves the same way. This should match the major version Neon uses in
+    # production.
     image: postgres:17.11-alpine
     container_name: jobtracker-postgres
     restart: unless-stopped
@@ -14,13 +14,14 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      # Bound to loopback only: the database must not be reachable from the network.
+      # Listens on this machine only. Nothing else on the network should reach the
+      # database.
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      # `docker compose up --wait` blocks until this passes, so the app never starts
-      # against a server that is still initializing.
+      # `docker compose up --wait` waits until this passes, so the app never starts
+      # while the server is still starting up.
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
