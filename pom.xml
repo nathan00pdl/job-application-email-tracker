@@ -43,11 +43,11 @@
             <artifactId>spring-boot-starter</artifactId>
         </dependency>
 
-        <!-- DataSource + JdbcTemplate. Spring Data JPA arrives with the persistence
-             adapter; at this stage only Flyway needs a connection pool. -->
+        <!-- Brings Hibernate, Spring Data JPA and, through them, the DataSource and
+             JdbcTemplate that spring-boot-starter-jdbc provided before. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-jdbc</artifactId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
 
         <dependency>

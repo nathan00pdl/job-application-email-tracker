@@ -15,6 +15,9 @@ import org.testcontainers.utility.DockerImageName;
  * application context it cached, which still points at the old one. Letting the JVM own
  * the container avoids this: Testcontainers removes it when the JVM exits.
  *
+ * <p>It is public so integration tests can live in the package of the code they
+ * cover, instead of all being pulled into this one.
+ *
  * <p>{@code @ServiceConnection} passes the container's real URL, username and password
  * to the application's DataSource. Flyway then runs the same migrations used in
  * production, and the tests use the same configuration as the application.
@@ -31,7 +34,7 @@ import org.testcontainers.utility.DockerImageName;
         "spring.datasource.username=replaced-by-service-connection",
         "spring.datasource.password=replaced-by-service-connection"
 })
-abstract class AbstractPostgresIntegrationTest {
+public abstract class AbstractPostgresIntegrationTest {
 
     /** Must match the image pinned in docker-compose.yml, so tests and local development
         use the same version. */
