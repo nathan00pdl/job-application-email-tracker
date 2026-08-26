@@ -10,6 +10,16 @@ spring:
     username: ${DATASOURCE_USERNAME}
     password: ${DATASOURCE_PASSWORD}
 
+  jpa:
+    hibernate:
+      # Flyway owns the schema. `validate` makes Hibernate compare the entities against
+      # the real tables at startup and fail if they have drifted apart, which turns a
+      # forgotten migration into a startup error instead of a runtime one.
+      ddl-auto: validate
+    # This application has no web requests, so there is no view to keep a session open
+    # for. Turning it off also removes the warning Spring logs about it by default.
+    open-in-view: false
+
   flyway:
     enabled: true
     locations: classpath:db/migration
