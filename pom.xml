@@ -21,6 +21,7 @@
         <java.version>25</java.version>
         <testcontainers.version>2.0.5</testcontainers.version>
         <google-api-services-gmail.version>v1-rev20260727-2.0.0</google-api-services-gmail.version>
+        <google-auth-library.version>1.51.0</google-auth-library.version>
     </properties>
 
     <dependencyManagement>
@@ -80,6 +81,14 @@
             <groupId>com.google.apis</groupId>
             <artifactId>google-api-services-gmail</artifactId>
             <version>${google-api-services-gmail.version}</version>
+        </dependency>
+
+        <!-- Turns the client id, client secret and refresh token into access tokens,
+             and renews them when they expire. Nothing in this project does that by hand. -->
+        <dependency>
+            <groupId>com.google.auth</groupId>
+            <artifactId>google-auth-library-oauth2-http</artifactId>
+            <version>${google-auth-library.version}</version>
         </dependency>
 
         <dependency>

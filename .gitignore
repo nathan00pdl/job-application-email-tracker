@@ -16,8 +16,12 @@ target/
 # Logs
 *.log
 
-# Environment / secrets
-.env
+# Environment / secrets.
+# Ignored by prefix, not by exact name: editors and backups produce .env~, .env.swp
+# and .env.old, and each of those holds the same credentials. Only the template is
+# allowed back in.
+.env*
+!.env.example
 
 # Personal project context (not meant to be shared in the public repo)
 PROJECT_CONTEXT.md
