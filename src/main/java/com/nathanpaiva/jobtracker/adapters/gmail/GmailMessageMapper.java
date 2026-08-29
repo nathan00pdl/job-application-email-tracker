@@ -71,7 +71,9 @@ final class GmailMessageMapper {
     private static String senderDomainOf(String fromHeader) {
         int at = fromHeader.lastIndexOf('@');
         if (at < 0) {
-            throw new IllegalArgumentException("From header has no address: " + fromHeader);
+            // The header value is not repeated here: this message reaches the log, and the
+            // sender address is personal data that logs have no business keeping.
+            throw new IllegalArgumentException("From header has no address");
         }
 
         String rest = fromHeader.substring(at + 1);
@@ -82,7 +84,7 @@ final class GmailMessageMapper {
 
         String domain = rest.substring(0, end).toLowerCase(java.util.Locale.ROOT);
         if (domain.isBlank()) {
-            throw new IllegalArgumentException("From header has no domain: " + fromHeader);
+            throw new IllegalArgumentException("From header has no domain");
         }
         return domain;
     }

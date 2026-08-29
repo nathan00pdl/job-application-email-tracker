@@ -46,4 +46,17 @@ mvn spring-boot:run
 ```
 
 The database username and password have no default value: the application will not
-start if `DATASOURCE_USERNAME` and `DATASOURCE_PASSWORD` are not set.
+start if `DATASOURCE_USERNAME` and `DATASOURCE_PASSWORD` are not set. The same holds for
+`GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET` and `GMAIL_REFRESH_TOKEN`.
+
+## Checking the Gmail credentials
+
+One test reads the real mailbox. It runs only when `GMAIL_REFRESH_TOKEN` is set, so CI
+skips it:
+
+```bash
+set -a && source .env && set +a
+mvn test -Dtest=GmailApiManualVerificationTest
+```
+
+It prints how many emails were read and their sender domains — no subjects, no bodies.
