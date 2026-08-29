@@ -26,3 +26,10 @@ spring:
     # Migrations create the whole schema, so there is no older state to baseline over.
     # An empty database must run V1 from the start.
     baseline-on-migrate: false
+
+# Credentials for reading the mailbox. No default values on purpose: a deployment
+# missing one fails at startup instead of failing later against Google.
+gmail:
+  client-id: ${GMAIL_CLIENT_ID}
+  client-secret: ${GMAIL_CLIENT_SECRET}
+  refresh-token: ${GMAIL_REFRESH_TOKEN}

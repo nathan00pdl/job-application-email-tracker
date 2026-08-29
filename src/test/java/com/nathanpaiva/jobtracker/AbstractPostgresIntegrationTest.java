@@ -32,7 +32,13 @@ import org.testcontainers.utility.DockerImageName;
         // configuration: Spring loads only one application.yml, and the one on the test
         // classpath would hide everything else in it.
         "spring.datasource.username=replaced-by-service-connection",
-        "spring.datasource.password=replaced-by-service-connection"
+        "spring.datasource.password=replaced-by-service-connection",
+        // Same reasoning for the Gmail credentials: they have no default so that a real
+        // deployment fails fast, which means the context needs values here to start.
+        // Nothing in these tests calls Google, so any value does.
+        "gmail.client-id=test-client-id",
+        "gmail.client-secret=test-client-secret",
+        "gmail.refresh-token=test-refresh-token"
 })
 public abstract class AbstractPostgresIntegrationTest {
 
