@@ -139,9 +139,13 @@ final class GmailMessageMapper {
 
     /**
      * Gmail encodes part bodies with the URL-safe base64 alphabet, using {@code -} and
-     * {@code _} where standard base64 uses {@code +} and {@code /}. Decoding with the
-     * standard decoder does not fail loudly — it corrupts any text that happens to use
-     * those characters, which in practice means accented words.
+     * {@code _} where standard base64 uses {@code +} and {@code /}.
+     *
+     * <p>Getting this wrong fails in two different ways, and neither is the one people
+     * expect. {@code Base64.getDecoder()} throws {@code IllegalArgumentException:
+     * Illegal base64 character 5f} — loud, and easy to find. {@code getMimeDecoder()} is
+     * the dangerous one: it silently drops every character outside its alphabet, so the
+     * body comes back truncated or empty with no error at all.
      */
     private static String decode(MessagePart part) {
         byte[] decoded = Base64.getUrlDecoder().decode(part.getBody().getData());
