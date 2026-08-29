@@ -20,6 +20,7 @@
     <properties>
         <java.version>25</java.version>
         <testcontainers.version>2.0.5</testcontainers.version>
+        <google-api-services-gmail.version>v1-rev20260727-2.0.0</google-api-services-gmail.version>
     </properties>
 
     <dependencyManagement>
@@ -71,6 +72,14 @@
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-database-postgresql</artifactId>
             <scope>runtime</scope>
+        </dependency>
+
+        <!-- Google's generated client for the Gmail API. This PR only uses its model
+             classes (Message, MessagePart); the calls themselves come with the adapter. -->
+        <dependency>
+            <groupId>com.google.apis</groupId>
+            <artifactId>google-api-services-gmail</artifactId>
+            <version>${google-api-services-gmail.version}</version>
         </dependency>
 
         <dependency>
