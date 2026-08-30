@@ -29,10 +29,7 @@ import jakarta.persistence.Table;
  *
  * <p>It carries four columns the domain record does not: {@code id} and
  * {@code created_at} belong to the database, {@code manual_status} is filled in by hand
- * in the spreadsheet, and {@code sheet_synced_at} is set by the spreadsheet sync. It
- * also stores {@code has_disagreement} and {@code included_in_digest}, which the domain
- * works out rather than holds — they are written here so the spreadsheet and any later
- * query can read them without repeating the rule.
+ * in the spreadsheet, and {@code sheet_synced_at} is set by the spreadsheet sync.
  */
 @Entity
 @Table(name = "email_classifications")
@@ -76,18 +73,6 @@ class EmailClassificationEntity {
     @Column(name = "is_urgent", nullable = false)
     private boolean urgent;
 
-    @Column(name = "matched_rule_filter", nullable = false)
-    private boolean matchedRuleFilter;
-
-    @Column(name = "llm_classified_relevant", nullable = false)
-    private boolean llmClassifiedRelevant;
-
-    @Column(name = "has_disagreement", nullable = false)
-    private boolean hasDisagreement;
-
-    @Column(name = "included_in_digest", nullable = false)
-    private boolean includedInDigest;
-
     @Column(name = "manual_status", length = 50)
     private String manualStatus;
 
@@ -113,10 +98,6 @@ class EmailClassificationEntity {
         entity.updateType = classification.updateType();
         entity.summary = classification.summary();
         entity.urgent = classification.urgent();
-        entity.matchedRuleFilter = classification.matchedRuleFilter();
-        entity.llmClassifiedRelevant = classification.llmClassifiedRelevant();
-        entity.hasDisagreement = classification.hasDisagreement();
-        entity.includedInDigest = classification.includedInDigest();
         return entity;
     }
 }

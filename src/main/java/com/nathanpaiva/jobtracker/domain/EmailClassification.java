@@ -14,16 +14,14 @@ import java.util.Objects;
  * that already happened: an email arrived at a given time and was classified. No later
  * step should change that.
  *
+ * <p>Its existence is the verdict. Emails that are not about a job application are not
+ * turned into one of these and are never stored, so there is no field saying whether it
+ * counts — every one of them does.
+ *
  * <p>Four columns of {@code email_classifications} are left out on purpose.
  * {@code id}, {@code created_at} and {@code sheet_synced_at} are internal tracking for
  * storage and syncing, and {@code manual_status} is filled in by hand in the
  * spreadsheet. None of them are part of what a classification is.
- *
- * <p>Two more columns are missing for a different reason. {@code has_disagreement} and
- * {@code included_in_digest} are not given to this record: they are worked out from
- * {@code matchedRuleFilter} and {@code llmClassifiedRelevant} by the methods below.
- * Storing them as fields would allow an object whose flags contradict the values they
- * came from, and nothing would catch it.
  *
  * @param gmailMessageId        Gmail's id for the message; the key used to avoid
  *                              processing the same email twice
@@ -35,8 +33,6 @@ import java.util.Objects;
  * @param updateType            the kind of news the email carries
  * @param summary               a short summary, kept in the email's original language; may be null
  * @param urgent                whether the email asks for something time-sensitive
- * @param matchedRuleFilter     whether the cheap rule filter flagged this email
- * @param llmClassifiedRelevant whether the LLM judged it to be about a job application
  */
 public record EmailClassification(
         String gmailMessageId,
@@ -47,9 +43,7 @@ public record EmailClassification(
         String roleTitle,
         UpdateType updateType,
         String summary,
-        boolean urgent,
-        boolean matchedRuleFilter,
-        boolean llmClassifiedRelevant
+        boolean urgent
 ) {
 
     /**
@@ -66,38 +60,6 @@ public record EmailClassification(
         Objects.requireNonNull(receivedAt, "receivedAt must not be null");
         requireText(senderDomain, "senderDomain");
         Objects.requireNonNull(updateType, "updateType must not be null");
-    }
-
-    /**
-     * Whether this email counts for the day: it is included in the WhatsApp summary and
-     * in the daily counts.
-     *
-     * <p>The LLM has the final say. The rule filter is only a cheap first pass that
-     * decides which emails are worth sending to the LLM at all, so it cannot overrule
-     * the answer it asked for.
-     *
-     * <p>This reads as a plain copy of one field today, and it is. It exists as a named
-     * method so the rule has one home: if "counts for the day" ever needs more than one
-     * signal, this is the only place that changes, and every caller follows.
-     */
-    public boolean includedInDigest() {
-        return llmClassifiedRelevant;
-    }
-
-    /**
-     * Whether the two classification signals reached different answers.
-     *
-     * <p>The common case is the rule filter matching an email that the LLM then judges
-     * unrelated to a job application. Such an email is still saved, not thrown away, and
-     * is highlighted in the spreadsheet for a human to look at.
-     *
-     * <p>The point is not to correct the day's numbers, which follow the LLM either way.
-     * It is to leave a trail: if the rule filter and the LLM start disagreeing more
-     * often, the filter has drifted away from the emails actually being received, and
-     * the only way to notice is to have kept the two answers apart.
-     */
-    public boolean hasDisagreement() {
-        return matchedRuleFilter != llmClassifiedRelevant;
     }
 
     private static void requireText(String value, String fieldName) {
