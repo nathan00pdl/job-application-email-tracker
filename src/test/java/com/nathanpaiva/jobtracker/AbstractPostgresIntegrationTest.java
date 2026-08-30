@@ -38,7 +38,8 @@ import org.testcontainers.utility.DockerImageName;
         // Nothing in these tests calls Google, so any value does.
         "gmail.client-id=test-client-id",
         "gmail.client-secret=test-client-secret",
-        "gmail.refresh-token=test-refresh-token"
+        "gmail.refresh-token=test-refresh-token",
+        "anthropic.api-key=test-api-key"
 })
 public abstract class AbstractPostgresIntegrationTest {
 
