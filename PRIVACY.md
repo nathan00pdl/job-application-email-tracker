@@ -17,14 +17,15 @@ Each run looks only at messages received in the last 24 hours.
 
 ## What it does with them
 
-1. A local rule filter checks the sender's domain and the subject line to decide whether
-   a message might be about a job application. Messages that do not match are ignored and
-   nothing about them is stored.
-2. For the messages that do match, the subject and body are sent to Anthropic's Claude
-   API, which classifies them and extracts fields such as the company, the role, and the
-   kind of update. **This means the content of those emails is processed by Anthropic**,
-   under Anthropic's own terms and privacy policy.
-3. The extracted fields are saved so the same email is never processed twice.
+1. The app reads the subject and body **on your machine, or on the GitHub Actions runner
+   that runs the daily job**, and matches them against a list of phrases. Nothing is sent
+   to any third party for analysis: there is no external classifier and no AI service
+   involved.
+2. Emails that are not about a job application are ignored, and **nothing about them is
+   stored** — not the subject, not the sender, not the fact that they were read.
+3. For the ones that are, a small set of fields is saved: the Gmail message id, the time
+   it arrived, the sender's domain, the hiring platform, the kind of update, and the
+   subject line as a summary.
 
 ## Where the data is stored
 
@@ -39,7 +40,8 @@ repository.
 ## What the app does not do
 
 - It does not sell, share, or publish your data.
-- It does not use your data for advertising or for training any model.
+- It does not use your data for advertising, and no data ever reaches a model of any
+  kind.
 - It serves no users other than the account that authorised it.
 - It collects no analytics and no tracking data of any kind.
 
