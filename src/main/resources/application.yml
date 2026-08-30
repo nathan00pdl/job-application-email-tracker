@@ -34,9 +34,15 @@ gmail:
   client-secret: ${GMAIL_CLIENT_SECRET}
   refresh-token: ${GMAIL_REFRESH_TOKEN}
 
-# The API key has no default, like every other credential. The model does: it is not a
-# secret, and keeping it here means trying a different one is an environment variable
-# rather than a code change.
+# Which classifier to use. "rules" costs nothing and needs no credentials, so it is the
+# default: cloning this project and running it must not require paying anyone. "claude"
+# reads the email with a language model and is more accurate, at a price per email.
+classifier:
+  provider: ${CLASSIFIER_PROVIDER:rules}
+
+# Only read when the provider above is "claude". The API key has no default, like every
+# other credential. The model does: it is not a secret, and keeping it here means trying
+# a different one is an environment variable rather than a code change.
 anthropic:
   api-key: ${ANTHROPIC_API_KEY}
   model: ${ANTHROPIC_MODEL:claude-opus-5}

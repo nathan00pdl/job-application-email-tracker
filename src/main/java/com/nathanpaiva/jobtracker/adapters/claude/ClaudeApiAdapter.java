@@ -1,5 +1,6 @@
 package com.nathanpaiva.jobtracker.adapters.claude;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import com.anthropic.client.AnthropicClient;
@@ -18,6 +19,7 @@ import com.nathanpaiva.jobtracker.ports.ClassifierPort;
  * reply arrives as a typed object and there is nothing to parse.
  */
 @Component
+@ConditionalOnProperty(name = "classifier.provider", havingValue = "claude")
 class ClaudeApiAdapter implements ClassifierPort {
 
     /**
