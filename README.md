@@ -70,10 +70,15 @@ classifier:
   provider: rules   # default
 ```
 
-| Provider | Needs | Cost |
-|---|---|---|
-| `rules` | nothing | none |
-| `claude` | `ANTHROPIC_API_KEY` | a fraction of a cent per email |
+| Provider | Needs | Cost | Reads |
+|---|---|---|---|
+| `rules` | nothing | none | known phrases, and the sender's domain |
+| `claude` | `ANTHROPIC_API_KEY` | a fraction of a cent per email | the email itself |
+
+`rules` works better than it sounds, because these emails are templates: hiring platforms
+send the same sentences every time. What it cannot do is read — it never fills in the
+company or the role, since guessing those would produce values that look extracted but
+are not.
 
 `rules` is the default so that cloning this project and running it never requires paying
 anyone. Set `CLASSIFIER_PROVIDER=claude` and supply a key from

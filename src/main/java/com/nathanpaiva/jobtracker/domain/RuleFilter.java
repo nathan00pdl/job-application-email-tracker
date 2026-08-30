@@ -1,6 +1,5 @@
 package com.nathanpaiva.jobtracker.domain;
 
-import java.text.Normalizer;
 import java.util.Locale;
 import java.util.Set;
 
@@ -78,20 +77,7 @@ public final class RuleFilter {
      * that mentions work in passing, and every extra match is an API call spent.
      */
     private static boolean hasJobKeyword(String subject) {
-        String normalized = removeAccents(subject).toLowerCase(Locale.ROOT);
+        String normalized = TextNormalizer.normalize(subject);
         return SUBJECT_KEYWORDS.stream().anyMatch(normalized::contains);
-    }
-
-    /**
-     * Turns "Seleção" into "Selecao" so one keyword covers every way a subject may be
-     * written or mistyped.
-     *
-     * <p>NFD splits an accented character into the letter plus a separate combining
-     * mark, and {@code \p{M}} then removes those marks. {@code Locale.ROOT} is used for
-     * the lowercasing that follows: with a Turkish locale, lowercasing "I" produces a
-     * dotless "ı" and every keyword containing an i would stop matching.
-     */
-    private static String removeAccents(String text) {
-        return Normalizer.normalize(text, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
     }
 }
