@@ -33,3 +33,10 @@ gmail:
   client-id: ${GMAIL_CLIENT_ID}
   client-secret: ${GMAIL_CLIENT_SECRET}
   refresh-token: ${GMAIL_REFRESH_TOKEN}
+
+# The API key has no default, like every other credential. The model does: it is not a
+# secret, and keeping it here means trying a different one is an environment variable
+# rather than a code change.
+anthropic:
+  api-key: ${ANTHROPIC_API_KEY}
+  model: ${ANTHROPIC_MODEL:claude-opus-5}

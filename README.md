@@ -60,3 +60,13 @@ mvn test -Dtest=GmailApiManualVerificationTest
 ```
 
 It prints how many emails were read and their sender domains — no subjects, no bodies.
+
+## Checking the classifier
+
+Another test sends one made-up email to the real Anthropic API and prints the answer. It
+runs only when `ANTHROPIC_API_KEY` is set, and it costs a fraction of a cent:
+
+```bash
+set -a && source .env && set +a
+mvn test -Dtest=ClaudeApiManualVerificationTest
+```
