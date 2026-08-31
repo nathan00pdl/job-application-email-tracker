@@ -27,6 +27,15 @@ docker compose up -d --wait
 Only PostgreSQL runs in a container. The application runs directly on the JVM, both
 locally and in CI — see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
+## How emails are classified
+
+The classifier runs locally and matches the phrases hiring platforms use — "recebemos sua
+candidatura", "infelizmente não seguiremos", "gostaríamos de convidá-lo" — plus the
+sender's domain. There is no external service, no API key and no cost.
+
+Emails that are not about a job application are dropped without being recorded, so
+unrelated mail never reaches the database.
+
 ## Build & test
 
 ```bash
