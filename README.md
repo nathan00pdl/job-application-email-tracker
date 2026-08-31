@@ -60,32 +60,3 @@ mvn test -Dtest=GmailApiManualVerificationTest
 ```
 
 It prints how many emails were read and their sender domains — no subjects, no bodies.
-
-## Choosing a classifier
-
-Two classifiers are available, selected with one setting:
-
-```yaml
-classifier:
-  provider: rules   # default
-```
-
-| Provider | Needs | Cost |
-|---|---|---|
-| `rules` | nothing | none |
-| `claude` | `ANTHROPIC_API_KEY` | a fraction of a cent per email |
-
-`rules` is the default so that cloning this project and running it never requires paying
-anyone. Set `CLASSIFIER_PROVIDER=claude` and supply a key from
-[console.anthropic.com](https://console.anthropic.com) for the more accurate reading.
-
-## Checking the classifier
-
-Another test sends one made-up email to the real Anthropic API and prints the answer. It
-runs only when `ANTHROPIC_API_KEY` is set, so it is skipped unless you have chosen that
-provider, and it costs a fraction of a cent:
-
-```bash
-set -a && source .env && set +a
-mvn test -Dtest=ClaudeApiManualVerificationTest
-```
