@@ -42,7 +42,7 @@ class PostgresRepositoryAdapterIntegrationTest extends AbstractPostgresIntegrati
         persistence.save(new EmailClassification(
                 "gmail-id-full-row", RECEIVED_AT, "greenhouse.io", "Greenhouse",
                 "Acme Corp", "Backend Engineer", UpdateType.INTERVIEW_INVITE,
-                "Convite para entrevista técnica", true, true, true));
+                "Convite para entrevista técnica", true));
 
         Map<String, Object> row = rowFor("gmail-id-full-row");
 
@@ -61,31 +61,14 @@ class PostgresRepositoryAdapterIntegrationTest extends AbstractPostgresIntegrati
      */
     @Test
     void storesTheUpdateTypeByName() {
-        persistence.save(classificationWith("gmail-id-update-type", true, true));
+        persistence.save(classificationWith("gmail-id-update-type"));
 
         assertThat(rowFor("gmail-id-update-type").get("update_type")).isEqualTo("OTHER");
     }
 
-    /**
-     * The domain works these two out rather than holding them, so this is the point
-     * where the rule turns into stored data. If the adapter forgot to ask, both columns
-     * would quietly keep their FALSE default.
-     */
-    @Test
-    void writesTheDerivedFlagsAsTheDomainWorksThemOut() {
-        persistence.save(classificationWith("gmail-id-disagreement", true, false));
-
-        Map<String, Object> row = rowFor("gmail-id-disagreement");
-
-        assertThat(row.get("matched_rule_filter")).isEqualTo(true);
-        assertThat(row.get("llm_classified_relevant")).isEqualTo(false);
-        assertThat(row.get("has_disagreement")).isEqualTo(true);
-        assertThat(row.get("included_in_digest")).isEqualTo(false);
-    }
-
     @Test
     void leavesTheColumnsTheApplicationDoesNotOwnToTheDatabase() {
-        persistence.save(classificationWith("gmail-id-db-owned", true, true));
+        persistence.save(classificationWith("gmail-id-db-owned"));
 
         Map<String, Object> row = rowFor("gmail-id-db-owned");
 
@@ -97,7 +80,7 @@ class PostgresRepositoryAdapterIntegrationTest extends AbstractPostgresIntegrati
 
     @Test
     void reportsWhetherAnEmailWasAlreadyProcessed() {
-        persistence.save(classificationWith("gmail-id-already-seen", true, true));
+        persistence.save(classificationWith("gmail-id-already-seen"));
 
         assertThat(persistence.existsByGmailMessageId("gmail-id-already-seen")).isTrue();
         assertThat(persistence.existsByGmailMessageId("gmail-id-never-seen")).isFalse();
@@ -110,18 +93,16 @@ class PostgresRepositoryAdapterIntegrationTest extends AbstractPostgresIntegrati
      */
     @Test
     void refusesToSaveTheSameEmailTwice() {
-        persistence.save(classificationWith("gmail-id-duplicate", true, true));
+        persistence.save(classificationWith("gmail-id-duplicate"));
 
-        assertThatThrownBy(() -> persistence.save(classificationWith("gmail-id-duplicate", true, true)))
+        assertThatThrownBy(() -> persistence.save(classificationWith("gmail-id-duplicate")))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
-    private static EmailClassification classificationWith(
-            String gmailMessageId, boolean matchedRuleFilter, boolean llmClassifiedRelevant) {
-
+    private static EmailClassification classificationWith(String gmailMessageId) {
         return new EmailClassification(
                 gmailMessageId, RECEIVED_AT, "greenhouse.io", null, null, null,
-                UpdateType.OTHER, null, false, matchedRuleFilter, llmClassifiedRelevant);
+                UpdateType.OTHER, null, false);
     }
 
     private Map<String, Object> rowFor(String gmailMessageId) {

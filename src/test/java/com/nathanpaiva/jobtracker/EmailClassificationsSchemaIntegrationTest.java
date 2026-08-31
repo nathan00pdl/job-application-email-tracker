@@ -29,7 +29,7 @@ class EmailClassificationsSchemaIntegrationTest extends AbstractPostgresIntegrat
                 "SELECT version FROM flyway_schema_history WHERE success = true ORDER BY installed_rank",
                 String.class);
 
-        assertThat(appliedVersions).containsExactly("1");
+        assertThat(appliedVersions).containsExactly("1", "2");
     }
 
     @Test
@@ -41,8 +41,7 @@ class EmailClassificationsSchemaIntegrationTest extends AbstractPostgresIntegrat
         assertThat(columns).containsExactlyInAnyOrder(
                 "id", "gmail_message_id", "received_at", "sender_domain", "platform",
                 "company", "role_title", "update_type", "summary", "is_urgent",
-                "matched_rule_filter", "llm_classified_relevant", "has_disagreement",
-                "included_in_digest", "manual_status", "sheet_synced_at", "created_at");
+                "manual_status", "sheet_synced_at", "created_at");
     }
 
     @Test
@@ -58,14 +57,12 @@ class EmailClassificationsSchemaIntegrationTest extends AbstractPostgresIntegrat
         insertClassification("gmail-message-id-defaults");
 
         var row = jdbcTemplate.queryForMap("""
-                SELECT is_urgent, has_disagreement, included_in_digest, sheet_synced_at, created_at
+                SELECT is_urgent, sheet_synced_at, created_at
                 FROM email_classifications
                 WHERE gmail_message_id = 'gmail-message-id-defaults'
                 """);
 
         assertThat(row.get("is_urgent")).isEqualTo(false);
-        assertThat(row.get("has_disagreement")).isEqualTo(false);
-        assertThat(row.get("included_in_digest")).isEqualTo(false);
         // The Sheet sync step looks for NULL here to find rows not copied yet.
         assertThat(row.get("sheet_synced_at")).isNull();
         assertThat(row.get("created_at")).isNotNull();
@@ -75,9 +72,8 @@ class EmailClassificationsSchemaIntegrationTest extends AbstractPostgresIntegrat
     private void insertClassification(String gmailMessageId) {
         jdbcTemplate.update("""
                 INSERT INTO email_classifications (
-                    gmail_message_id, received_at, sender_domain, update_type,
-                    matched_rule_filter, llm_classified_relevant)
-                VALUES (?, now(), ?, ?, ?, ?)
-                """, gmailMessageId, "greenhouse.io", "INTERVIEW_INVITE", true, true);
+                    gmail_message_id, received_at, sender_domain, update_type)
+                VALUES (?, now(), ?, ?)
+                """, gmailMessageId, "greenhouse.io", "INTERVIEW_INVITE");
     }
 }
