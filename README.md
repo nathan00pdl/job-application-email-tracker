@@ -4,6 +4,55 @@ A daily job that scans a Gmail inbox for emails about job applications, classifi
 
 See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full design.
 
+## Architecture
+
+```mermaid
+flowchart TB
+    cron([GitHub Actions · daily cron]) --> runner
+
+    subgraph driving["driving adapter"]
+        runner["DailyScanRunner"]
+    end
+
+    subgraph application["application"]
+        usecase["RunDailyScanUseCase<br/><i>the order of the steps</i>"]
+    end
+
+    subgraph domain["domain"]
+        classifier["EmailClassifier<br/><i>the rules</i>"]
+        model["EmailClassification<br/>IncomingEmail · UpdateType"]
+    end
+
+    subgraph ports["ports"]
+        source["EmailSourcePort"]
+        store["PersistencePort"]
+    end
+
+    subgraph driven["driven adapters"]
+        gmail["GmailApiAdapter"]
+        postgres["PostgresRepositoryAdapter"]
+    end
+
+    runner --> usecase
+    usecase --> classifier
+    usecase --> source
+    usecase --> store
+    classifier --> model
+    gmail -. implements .-> source
+    postgres -. implements .-> store
+    gmail --> gmailapi[(Gmail API)]
+    postgres --> db[(PostgreSQL)]
+```
+
+The two dotted arrows are the point. Everything else flows downward, but the adapters
+point **back up** at the ports: the interfaces are declared on the inside, in the
+language of the problem, and the code that talks to Gmail and PostgreSQL adapts itself to
+them. Nothing in `domain` or `application` names a vendor, which is why the whole daily
+run can be tested against two lists in memory.
+
+`application` holds the order of the steps and no business rules; `domain` holds the
+rules and knows nothing about order, storage or the network.
+
 ## Requirements
 
 - Java 25
