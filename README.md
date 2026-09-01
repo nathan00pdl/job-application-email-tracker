@@ -107,6 +107,23 @@ The database username and password have no default value: the application will n
 start if `DATASOURCE_USERNAME` and `DATASOURCE_PASSWORD` are not set. The same holds for
 `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET` and `GMAIL_REFRESH_TOKEN`.
 
+## Running the scan
+
+With the database up and the environment loaded, this reads the mailbox and stores what
+it finds:
+
+```bash
+docker compose up -d --wait
+set -a && source .env && set +a
+mvn spring-boot:run
+```
+
+The application runs the scan once and exits — there is no server to leave running. It
+logs how many emails it read, how many it stored, how many it had already seen, and how
+many were not about a job application.
+
+To start it without scanning, set `RUN_ON_STARTUP=false`.
+
 ## Checking the Gmail credentials
 
 One test reads the real mailbox. It runs only when `GMAIL_REFRESH_TOKEN` is set, so CI

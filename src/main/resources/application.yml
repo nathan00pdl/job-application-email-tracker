@@ -34,3 +34,7 @@ gmail:
   client-secret: ${GMAIL_CLIENT_SECRET}
   refresh-token: ${GMAIL_REFRESH_TOKEN}
 
+# The application exists to run the scan, so it does that on startup and then exits.
+# Tests turn it off: otherwise every context that boots would try to read a real mailbox.
+jobtracker:
+  run-on-startup: ${RUN_ON_STARTUP:true}
