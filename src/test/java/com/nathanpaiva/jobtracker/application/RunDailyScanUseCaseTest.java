@@ -44,7 +44,7 @@ class RunDailyScanUseCaseTest {
     void storesTheEmailsThatAreAboutAnApplication() {
         mailbox.contains(
                 email("m1", "greenhouse.io", "Recebemos sua candidatura"),
-                email("m2", "acme.com", "Sua candidatura: convite para entrevista"));
+                email("m2", "acme.com", "Sobre sua candidatura: convite para entrevista"));
 
         useCase.run();
 
