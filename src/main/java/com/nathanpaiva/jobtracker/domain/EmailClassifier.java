@@ -31,13 +31,12 @@ import java.util.Set;
 public final class EmailClassifier {
 
     /**
-     * Hiring platforms, mapped to the name worth recording.
+     * Applicant tracking systems: software a company runs to manage its hiring.
      *
-     * <p>One map serves both questions — "is this a hiring platform?" and "what is it
-     * called?" — on purpose. An earlier design kept a set of domains in one class and a
-     * map of names in another, and the two could drift apart without anyone noticing.
+     * <p>An email from one of these counts as being about an application on its own,
+     * because that is all they send. They do not have newsletters.
      */
-    private static final Map<String, String> PLATFORM_BY_DOMAIN = Map.ofEntries(
+    private static final Map<String, String> ATS_BY_DOMAIN = Map.ofEntries(
             Map.entry("greenhouse.io", "Greenhouse"), Map.entry("lever.co", "Lever"),
             Map.entry("ashbyhq.com", "Ashby"), Map.entry("workable.com", "Workable"),
             Map.entry("recruitee.com", "Recruitee"), Map.entry("breezy.hr", "Breezy"),
@@ -48,23 +47,65 @@ public final class EmailClassifier {
             Map.entry("successfactors.com", "SuccessFactors"),
             Map.entry("workday.com", "Workday"), Map.entry("myworkdayjobs.com", "Workday"),
             Map.entry("gupy.io", "Gupy"), Map.entry("kenoby.com", "Kenoby"),
-            Map.entry("solides.com", "Sólides"), Map.entry("99jobs.com", "99Jobs"),
+            Map.entry("solides.com", "Sólides"));
+
+    /**
+     * Job boards: sites where openings are advertised.
+     *
+     * <p>Their name is worth recording when an email does come from one, but their
+     * presence proves nothing. They send job alerts, newsletters and social
+     * notifications to everyone, most of it to people who have applied for nothing —
+     * which is exactly how a LinkedIn message about post impressions was once stored as
+     * a job application.
+     */
+    private static final Map<String, String> JOB_BOARD_BY_DOMAIN = Map.ofEntries(
             Map.entry("linkedin.com", "LinkedIn"), Map.entry("indeed.com", "Indeed"),
             Map.entry("glassdoor.com", "Glassdoor"), Map.entry("vagas.com.br", "Vagas.com"),
             Map.entry("catho.com.br", "Catho"), Map.entry("infojobs.com.br", "InfoJobs"),
+            Map.entry("99jobs.com", "99Jobs"),
             Map.entry("programathor.com.br", "ProgramaThor"));
 
     /**
      * Phrases showing an application already exists.
      *
+     * <p>These are deliberately written in the past or the possessive. An earlier
+     * version accepted "processo seletivo" and "sua inscricao", and both turned out to
+     * be everywhere: an advert for a trainee programme and a discount on an MBA course
+     * were stored as job applications because of them.
+     *
      * <p>Being about a job is not the same as being about an application this person
-     * made. A newsletter listing openings mentions vagas on every line and belongs
-     * nowhere near the day's numbers.
+     * made. Almost every phrase describing the act of applying also appears in adverts
+     * inviting people to apply — so what is matched here is the answer, not the offer.
      */
     private static final Set<String> APPLICATION_EVIDENCE = Set.of(
-            "candidatura", "sua inscricao", "sua aplicacao", "processo seletivo",
-            "sua participacao", "seu curriculo", "your application", "you applied",
-            "application for", "hiring process", "recruitment process");
+            "recebemos sua candidatura", "recebemos sua inscricao",
+            "sua candidatura foi", "sua candidatura para", "sobre sua candidatura",
+            "status da sua candidatura", "andamento da sua candidatura",
+            "candidatura recebida", "candidatura registrada",
+            "obrigado por se candidatar", "agradecemos sua candidatura",
+            "agradecemos seu interesse na vaga",
+            "we received your application", "thank you for applying",
+            "your application for", "your application has", "you applied",
+            "regarding your application", "application status");
+
+    /**
+     * Phrases that mean the email is inviting someone to apply, not reporting on an
+     * application.
+     *
+     * <p>These win over everything else. An advert can easily contain a phrase from the
+     * list above — "faça sua candidatura para" — and without a way to say no, the only
+     * options would be to accept the advert or to drop the phrase and lose real emails
+     * with it.
+     *
+     * <p>The list is kept narrow for the same reason it exists. "Venha fazer parte" was
+     * considered and rejected: it reads like an advert, but an offer letter says it too.
+     */
+    private static final Set<String> ADVERT_PHRASES = Set.of(
+            "inscreva-se", "inscreva se", "candidate-se", "candidate se",
+            "vagas abertas", "confira as vagas", "conheca as vagas",
+            "veja as vagas", "oportunidades abertas", "estamos contratando",
+            "apply now", "we are hiring", "we're hiring", "job alert",
+            "jobs for you", "this job is a match", "recommended for you");
 
     /**
      * Read in this order, first match wins, and the order carries meaning. A rejection
@@ -83,7 +124,7 @@ public final class EmailClassifier {
         String text = normalize(email.subject() + " " + email.body());
         String platform = platformOf(email.senderDomain());
 
-        if (!isAboutAnApplication(text, platform)) {
+        if (!isAboutAnApplication(text, email.senderDomain())) {
             return Optional.empty();
         }
 
@@ -100,11 +141,16 @@ public final class EmailClassifier {
     }
 
     /**
-     * A message from a hiring platform counts on its own: those systems only write to
-     * people who are already in a process.
+     * An advert is never about an application, whatever else it says. Otherwise, an
+     * email counts when it carries evidence of an application, or when it comes from an
+     * applicant tracking system — those only write to people already in a process.
      */
-    private static boolean isAboutAnApplication(String text, String platform) {
-        return platform != null || APPLICATION_EVIDENCE.stream().anyMatch(text::contains);
+    private static boolean isAboutAnApplication(String text, String senderDomain) {
+        if (ADVERT_PHRASES.stream().anyMatch(text::contains)) {
+            return false;
+        }
+        return nameFrom(ATS_BY_DOMAIN, senderDomain) != null
+                || APPLICATION_EVIDENCE.stream().anyMatch(text::contains);
     }
 
     private static UpdateType updateTypeOf(String text) {
@@ -125,8 +171,13 @@ public final class EmailClassifier {
      * that quietly accepts lookalike domains is worse than one that misses them.
      */
     private static String platformOf(String senderDomain) {
+        String ats = nameFrom(ATS_BY_DOMAIN, senderDomain);
+        return ats != null ? ats : nameFrom(JOB_BOARD_BY_DOMAIN, senderDomain);
+    }
+
+    private static String nameFrom(Map<String, String> byDomain, String senderDomain) {
         String domain = normalize(senderDomain);
-        return PLATFORM_BY_DOMAIN.entrySet().stream()
+        return byDomain.entrySet().stream()
                 .filter(entry -> domain.equals(entry.getKey())
                         || domain.endsWith("." + entry.getKey()))
                 .map(Map.Entry::getValue)
