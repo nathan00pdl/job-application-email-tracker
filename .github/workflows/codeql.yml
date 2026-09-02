@@ -14,6 +14,10 @@ on:
   # Without this, a rule written next month would never run against code written today.
   schedule:
     - cron: "0 6 * * 1"
+  # A button in the Actions tab. This one is worth having here: CodeQL needs a few
+  # hundred megabytes of tooling and several minutes, so running it locally is not
+  # practical, and this is the only way to ask for a scan without pushing something.
+  workflow_dispatch:
 
 permissions:
   contents: read
