@@ -1,0 +1,31 @@
+# Keeps dependencies and workflow actions current, and opens the pull request that does
+# it. Security alerts and security fixes are separate features, on by default for public
+# repositories — this file is only about staying up to date when nothing is wrong yet.
+version: 2
+
+updates:
+  - package-ecosystem: maven
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    # Minor and patch bumps arrive as one pull request instead of five. Majors stay on
+    # their own, because those are the ones worth reading carefully.
+    groups:
+      maven-minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: build
+
+  # The reason this project needs the second one. ci.yml pins every action to an exact
+  # commit SHA, which is the right thing to do — an action referenced by tag can be
+  # repointed at new code by whoever owns it. The cost is that a pinned SHA never moves
+  # again on its own, not even for a security fix. This is what keeps them moving.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci

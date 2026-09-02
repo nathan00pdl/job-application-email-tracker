@@ -8,7 +8,10 @@ services:
     # production.
     image: postgres:17.11-alpine
     container_name: jobtracker-postgres
-    restart: unless-stopped
+    # Never starts on its own. This is a development database, and a container that
+    # comes back on every boot is a surprise months later, when the project is idle.
+    # `docker compose up -d --wait` starts it when it is wanted.
+    restart: "no"
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
