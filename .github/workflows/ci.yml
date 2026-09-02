@@ -24,3 +24,52 @@ jobs:
 
       - name: Build and test
         run: mvn -B clean verify
+
+  # Pattern-based static analysis, alongside the build rather than after it: the two
+  # jobs are independent, so they run at the same time and neither waits on the other.
+  #
+  # This answers a different question from CodeQL, which runs in its own workflow.
+  # CodeQL follows data through the program and is slower; Semgrep matches shapes in the
+  # source and finishes in seconds. They overlap, and each finds things the other misses.
+  semgrep:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      # Findings are uploaded to the Security tab, which is a write. Everything else
+      # stays read-only.
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # pipx rather than pip: recent Ubuntu images refuse to install into the system
+      # Python, and pipx puts the tool in its own environment without the argument that
+      # overrides that protection.
+      - name: Install Semgrep
+        run: pipx install semgrep
+
+      # Two curated rule sets, named explicitly. `--config auto` would pick them for us,
+      # but it needs an account and reports usage back, and neither is wanted here.
+      #
+      # --error makes a finding fail the job. That is the point of running it on every
+      # pull request: a report nobody is forced to read is a report nobody reads. If
+      # these rules turn out to be noisy on this codebase, the answer is to narrow them,
+      # not to make the job pass regardless.
+      - name: Run Semgrep
+        run: |
+          semgrep scan \
+            --config p/java \
+            --config p/security-audit \
+            --sarif --output semgrep.sarif \
+            --error
+
+      # Runs even when the step above failed, which is exactly when the findings are
+      # worth having somewhere readable.
+      - name: Upload findings
+        if: always()
+        uses: github/codeql-action/upload-sarif@486fec2a3ea2626afcd8c7e9208b4f515078dd7e # v2.26.4
+        with:
+          sarif_file: semgrep.sarif
+
