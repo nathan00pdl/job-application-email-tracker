@@ -1,0 +1,35 @@
+# Refuses a pull request that adds a dependency with a known vulnerability.
+#
+# Dependabot already watches what is in the project and opens a pull request when
+# something turns out to be vulnerable. This is the other direction: it looks at what a
+# pull request is about to add, before it is merged. Catching it here is cheaper than
+# merging it and reacting to the alert afterwards.
+name: Dependency Review
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      # The action writes its findings as a comment on the pull request.
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          # Anything moderate and above stops the merge. Low findings are reported in
+          # the summary without blocking, so the gate stays about things worth acting on.
+          fail-on-severity: moderate
+          comment-summary-in-pr: always
