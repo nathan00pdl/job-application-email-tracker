@@ -1,0 +1,58 @@
+# Static analysis of this project's own code, by GitHub's own engine.
+#
+# CodeQL turns the source into a database and runs queries over it, which is what lets it
+# follow a value from where it enters the program to where it is used. That is a
+# different question from the one Dependabot answers: this looks for mistakes in code
+# written here, not for known flaws in code written elsewhere.
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # New queries ship regularly, and most of them are about code that has not changed.
+  # Without this, a rule written next month would never run against code written today.
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      # The one permission this workflow needs beyond reading: results are uploaded to
+      # the repository's Security tab, which is a write.
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Initialise CodeQL
+        uses: github/codeql-action/init@486fec2a3ea2626afcd8c7e9208b4f515078dd7e # v2.26.4
+        with:
+          languages: java-kotlin
+          # More than the default set. On a codebase this size the default suite tends to
+          # report nothing at all, which teaches nobody anything; the extended one is
+          # noisier but worth reading.
+          queries: security-extended
+
+      # CodeQL has to watch a compiler to see Java. Its autobuild step would guess the
+      # command; this project has one, so it is given instead. Tests are skipped because
+      # ci.yml already runs them, and running them twice would only make this slower.
+      - name: Compile
+        run: mvn -B clean compile -DskipTests
+
+      - name: Analyse
+        uses: github/codeql-action/analyze@486fec2a3ea2626afcd8c7e9208b4f515078dd7e # v2.26.4
