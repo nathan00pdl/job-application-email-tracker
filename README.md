@@ -8,31 +8,35 @@ See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full design.
 
 ```mermaid
 flowchart TB
-    cron([GitHub Actions · daily cron]) --> runner
+    cron([GitHub Actions · daily cron]):::outside
 
-    subgraph driving["driving adapter"]
-        runner["DailyScanRunner"]
+    subgraph sgDriving["driving adapter"]
+        runner["DailyScanRunner"]:::adapter
     end
 
-    subgraph application["application"]
-        usecase["RunDailyScanUseCase<br/><i>the order of the steps</i>"]
+    subgraph sgApp["application"]
+        usecase["RunDailyScanUseCase<br/><i>the order of the steps</i>"]:::app
     end
 
-    subgraph domain["domain"]
-        classifier["EmailClassifier<br/><i>the rules</i>"]
-        model["EmailClassification<br/>IncomingEmail · UpdateType"]
+    subgraph sgDomain["domain"]
+        classifier["EmailClassifier<br/><i>the rules</i>"]:::domain
+        model["EmailClassification<br/>IncomingEmail · UpdateType"]:::domain
     end
 
-    subgraph ports["ports"]
-        source["EmailSourcePort"]
-        store["PersistencePort"]
+    subgraph sgPorts["ports"]
+        source["EmailSourcePort"]:::port
+        store["PersistencePort"]:::port
     end
 
-    subgraph driven["driven adapters"]
-        gmail["GmailApiAdapter"]
-        postgres["PostgresRepositoryAdapter"]
+    subgraph sgDriven["driven adapters"]
+        gmail["GmailApiAdapter"]:::adapter
+        postgres["PostgresRepositoryAdapter"]:::adapter
     end
 
+    gmailapi[(Gmail API)]:::outside
+    db[(PostgreSQL)]:::outside
+
+    cron --> runner
     runner --> usecase
     usecase --> classifier
     usecase --> source
@@ -40,9 +44,26 @@ flowchart TB
     classifier --> model
     gmail -. implements .-> source
     postgres -. implements .-> store
-    gmail --> gmailapi[(Gmail API)]
-    postgres --> db[(PostgreSQL)]
+    gmail --> gmailapi
+    postgres --> db
+
+    classDef domain  fill:#FDE3C8,stroke:#C2410C,color:#1F2328
+    classDef app     fill:#D6E6FB,stroke:#1D4ED8,color:#1F2328
+    classDef port    fill:#E4DAFC,stroke:#6D28D9,color:#1F2328
+    classDef adapter fill:#CDF0DC,stroke:#15803D,color:#1F2328
+    classDef outside fill:#E7E9EC,stroke:#4B5563,color:#1F2328
+
+    style sgDomain  fill:#FFF6EC,stroke:#C2410C,color:#1F2328
+    style sgApp     fill:#F2F7FE,stroke:#1D4ED8,color:#1F2328
+    style sgPorts   fill:#F6F2FE,stroke:#6D28D9,color:#1F2328
+    style sgDriving fill:#F1FBF5,stroke:#15803D,color:#1F2328
+    style sgDriven  fill:#F1FBF5,stroke:#15803D,color:#1F2328
+
+    linkStyle 6,7 stroke:#6D28D9,stroke-width:2px
 ```
+
+Colour marks the layer: orange for the domain, blue for the application, purple for the
+ports, green for the adapters, grey for anything outside this codebase.
 
 The two dotted arrows are the point. Everything else flows downward, but the adapters
 point **back up** at the ports: the interfaces are declared on the inside, in the
