@@ -38,7 +38,10 @@ import org.testcontainers.utility.DockerImageName;
         // Nothing in these tests calls Google, so any value does.
         "gmail.client-id=test-client-id",
         "gmail.client-secret=test-client-secret",
-        "gmail.refresh-token=test-refresh-token"
+        "gmail.refresh-token=test-refresh-token",
+        // Without this, booting a context here would start the daily scan and
+        // reach for a real mailbox with fake credentials.
+        "jobtracker.run-on-startup=false"
 })
 public abstract class AbstractPostgresIntegrationTest {
 
