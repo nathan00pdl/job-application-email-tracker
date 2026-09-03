@@ -1,5 +1,9 @@
 package com.nathanpaiva.jobtracker.ports;
 
+import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
+
 import com.nathanpaiva.jobtracker.domain.EmailClassification;
 
 /**
@@ -29,8 +33,27 @@ public interface PersistencePort {
     /**
      * Whether an email with this Gmail id was already processed.
      *
-     * <p>This is the check that keeps the daily job from classifying the same email
-     * twice, which matters because classifying costs money.
+     * <p>This is the check that keeps the daily job from looking at the same email
+     * twice.
      */
     boolean existsByGmailMessageId(String gmailMessageId);
+
+    /**
+     * Classifications that have not reached the spreadsheet yet, oldest first.
+     *
+     * <p>Storing and mirroring are separate steps on purpose. If the spreadsheet cannot
+     * be reached, the classification is already safe in the database and this method
+     * finds it again on the next run — rather than the day's work being lost because a
+     * second service was down.
+     */
+    List<EmailClassification> findNotSyncedToSpreadsheet();
+
+    /**
+     * Records that these reached the spreadsheet, so the next run leaves them alone.
+     *
+     * <p>Called after the append succeeds, never before. Marking first and appending
+     * second would lose rows on failure; this way a failure means they are tried again,
+     * and the worst case is a duplicated row rather than a missing one.
+     */
+    void markSyncedToSpreadsheet(Collection<String> gmailMessageIds, Instant syncedAt);
 }

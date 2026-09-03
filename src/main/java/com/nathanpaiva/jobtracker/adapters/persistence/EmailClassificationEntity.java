@@ -83,6 +83,12 @@ class EmailClassificationEntity {
     @Column(name = "created_at", insertable = false, updatable = false)
     private Instant createdAt;
 
+    EmailClassification toDomain() {
+        return new EmailClassification(
+                gmailMessageId, receivedAt, senderDomain, platform, company, roleTitle,
+                updateType, summary, urgent);
+    }
+
     /** Required by Hibernate, which builds entities by reflection. */
     protected EmailClassificationEntity() {
     }

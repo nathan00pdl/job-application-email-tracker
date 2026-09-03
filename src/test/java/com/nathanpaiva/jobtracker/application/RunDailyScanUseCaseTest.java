@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -141,6 +142,7 @@ class RunDailyScanUseCaseTest {
 
         private final List<EmailClassification> saved = new ArrayList<>();
         private final List<String> knownIds = new ArrayList<>();
+        private final List<String> syncedIds = new ArrayList<>();
 
         void alreadyHas(String gmailMessageId) {
             knownIds.add(gmailMessageId);
@@ -155,6 +157,19 @@ class RunDailyScanUseCaseTest {
         @Override
         public boolean existsByGmailMessageId(String gmailMessageId) {
             return knownIds.contains(gmailMessageId);
+        }
+
+        // The daily scan does not touch the spreadsheet yet. These exist because the
+        // port declares them, and the compiler is right to insist.
+
+        @Override
+        public List<EmailClassification> findNotSyncedToSpreadsheet() {
+            return List.copyOf(saved);
+        }
+
+        @Override
+        public void markSyncedToSpreadsheet(Collection<String> gmailMessageIds, Instant syncedAt) {
+            syncedIds.addAll(gmailMessageIds);
         }
     }
 }
