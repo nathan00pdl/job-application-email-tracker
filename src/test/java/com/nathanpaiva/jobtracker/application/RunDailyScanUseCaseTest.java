@@ -16,8 +16,10 @@ import com.nathanpaiva.jobtracker.domain.IncomingEmail;
 import com.nathanpaiva.jobtracker.domain.UpdateType;
 import com.nathanpaiva.jobtracker.ports.EmailSourcePort;
 import com.nathanpaiva.jobtracker.ports.PersistencePort;
+import com.nathanpaiva.jobtracker.ports.SpreadsheetPort;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * The whole daily run, with the mailbox and the database replaced by two lists.
@@ -36,9 +38,10 @@ class RunDailyScanUseCaseTest {
 
     private final InMemoryEmailSource mailbox = new InMemoryEmailSource();
     private final InMemoryPersistence database = new InMemoryPersistence();
+    private final InMemorySpreadsheet sheet = new InMemorySpreadsheet();
 
     private final RunDailyScanUseCase useCase = new RunDailyScanUseCase(
-            mailbox, new EmailClassifier(), database,
+            mailbox, new EmailClassifier(), database, sheet,
             Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
@@ -115,6 +118,55 @@ class RunDailyScanUseCaseTest {
         assertThat(database.saved).isEmpty();
     }
 
+    @Test
+    void mirrorsWhatItStoredToTheSpreadsheet() {
+        mailbox.contains(email("m1", "greenhouse.io", "Recebemos sua candidatura"));
+
+        useCase.run();
+
+        assertThat(sheet.rows)
+                .extracting(EmailClassification::gmailMessageId)
+                .containsExactly("m1");
+    }
+
+    @Test
+    void doesNotSendTheSameRowTwice() {
+        mailbox.contains(email("m1", "greenhouse.io", "Recebemos sua candidatura"));
+
+        useCase.run();
+        useCase.run();
+
+        assertThat(sheet.rows).hasSize(1);
+    }
+
+    /**
+     * A run whose spreadsheet call failed leaves rows behind. They are picked up on the
+     * next run, so a day when Google is unreachable costs a delay and nothing else.
+     */
+    @Test
+    void picksUpRowsLeftBehindByAFailedRun() {
+        mailbox.contains(email("m1", "greenhouse.io", "Recebemos sua candidatura"));
+        sheet.breaks();
+
+        assertThatThrownBy(useCase::run).isInstanceOf(IllegalStateException.class);
+        assertThat(database.saved).hasSize(1);
+        assertThat(sheet.rows).isEmpty();
+
+        sheet.unreachable = false;
+        useCase.run();
+
+        assertThat(sheet.rows)
+                .extracting(EmailClassification::gmailMessageId)
+                .containsExactly("m1");
+    }
+
+    @Test
+    void leavesTheSpreadsheetAloneWhenThereIsNothingWaiting() {
+        useCase.run();
+
+        assertThat(sheet.rows).isEmpty();
+    }
+
     private static IncomingEmail email(String id, String senderDomain, String subject) {
         return new IncomingEmail(id, NOW.minus(Duration.ofHours(2)), senderDomain,
                 subject, "corpo do email");
@@ -134,6 +186,25 @@ class RunDailyScanUseCaseTest {
         public List<IncomingEmail> fetchReceivedAfter(Instant since) {
             askedFor = since;
             return List.copyOf(emails);
+        }
+    }
+
+    /** A spreadsheet that is a list, and can be told to fail. */
+    private static final class InMemorySpreadsheet implements SpreadsheetPort {
+
+        private final List<EmailClassification> rows = new ArrayList<>();
+        private boolean unreachable;
+
+        void breaks() {
+            unreachable = true;
+        }
+
+        @Override
+        public void append(List<EmailClassification> classifications) {
+            if (unreachable) {
+                throw new IllegalStateException("spreadsheet unreachable");
+            }
+            rows.addAll(classifications);
         }
     }
 
@@ -159,12 +230,11 @@ class RunDailyScanUseCaseTest {
             return knownIds.contains(gmailMessageId);
         }
 
-        // The daily scan does not touch the spreadsheet yet. These exist because the
-        // port declares them, and the compiler is right to insist.
-
         @Override
         public List<EmailClassification> findNotSyncedToSpreadsheet() {
-            return List.copyOf(saved);
+            return saved.stream()
+                    .filter(classification -> !syncedIds.contains(classification.gmailMessageId()))
+                    .toList();
         }
 
         @Override

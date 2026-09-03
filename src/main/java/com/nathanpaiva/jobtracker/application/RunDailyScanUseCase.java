@@ -13,6 +13,7 @@ import com.nathanpaiva.jobtracker.domain.EmailClassifier;
 import com.nathanpaiva.jobtracker.domain.IncomingEmail;
 import com.nathanpaiva.jobtracker.ports.EmailSourcePort;
 import com.nathanpaiva.jobtracker.ports.PersistencePort;
+import com.nathanpaiva.jobtracker.ports.SpreadsheetPort;
 
 /**
  * The daily run: read the mailbox, keep what is about a job application, store it.
@@ -40,17 +41,25 @@ public class RunDailyScanUseCase {
     private final EmailSourcePort emailSource;
     private final EmailClassifier classifier;
     private final PersistencePort persistence;
+    private final SpreadsheetPort spreadsheet;
     private final Clock clock;
 
     public RunDailyScanUseCase(EmailSourcePort emailSource, EmailClassifier classifier,
-                               PersistencePort persistence, Clock clock) {
+                               PersistencePort persistence, SpreadsheetPort spreadsheet,
+                               Clock clock) {
         this.emailSource = emailSource;
         this.classifier = classifier;
         this.persistence = persistence;
+        this.spreadsheet = spreadsheet;
         this.clock = clock;
     }
 
     public void run() {
+        readAndStoreNewEmails();
+        mirrorToSpreadsheet();
+    }
+
+    private void readAndStoreNewEmails() {
         Instant since = clock.instant().minus(WINDOW);
         List<IncomingEmail> emails = emailSource.fetchReceivedAfter(since);
 
@@ -74,5 +83,34 @@ public class RunDailyScanUseCase {
 
         log.info("read {} emails since {}: stored {}, already seen {}, not about an application {}",
                 emails.size(), since, stored, skipped, ignored);
+    }
+
+    /**
+     * Copies to the spreadsheet whatever has not reached it yet.
+     *
+     * <p>This is not limited to what was stored a moment ago. A run whose spreadsheet
+     * call failed leaves rows behind, and they are picked up here on the next run — so a
+     * day when Google is unreachable costs nothing beyond a delay.
+     *
+     * <p>Marking happens after the append returns. A failure therefore means the rows
+     * are tried again, and the worst outcome is a duplicated row rather than one that
+     * silently never arrives.
+     *
+     * <p>A failure here is not caught. The classifications are already safe in the
+     * database, so nothing is lost — but a spreadsheet quietly falling behind is worse
+     * than a job that goes red and says so.
+     */
+    private void mirrorToSpreadsheet() {
+        List<EmailClassification> waiting = persistence.findNotSyncedToSpreadsheet();
+        if (waiting.isEmpty()) {
+            return;
+        }
+
+        spreadsheet.append(waiting);
+        persistence.markSyncedToSpreadsheet(
+                waiting.stream().map(EmailClassification::gmailMessageId).toList(),
+                clock.instant());
+
+        log.info("mirrored {} classifications to the spreadsheet", waiting.size());
     }
 }
