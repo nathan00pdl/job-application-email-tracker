@@ -1,6 +1,12 @@
 package com.nathanpaiva.jobtracker.adapters.persistence;
 
+import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
+
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 
 /**
  * Spring Data repository for the entity.
@@ -17,4 +23,19 @@ import org.springframework.data.jpa.repository.JpaRepository;
 interface EmailClassificationJpaRepository extends JpaRepository<EmailClassificationEntity, Long> {
 
     boolean existsByGmailMessageId(String gmailMessageId);
+
+    List<EmailClassificationEntity> findBySheetSyncedAtIsNullOrderByReceivedAtAsc();
+
+    /**
+     * Written out because this one changes rows rather than reading them, and Spring
+     * cannot derive that from a method name.
+     *
+     * <p>{@code @Modifying} tells Spring the query writes, so it uses the right JDBC
+     * call and clears the persistence context afterwards — without it, entities already
+     * loaded in this transaction would still show the old value.
+     */
+    @Modifying
+    @Query("update EmailClassificationEntity e set e.sheetSyncedAt = :syncedAt "
+            + "where e.gmailMessageId in :gmailMessageIds")
+    int markSynced(Collection<String> gmailMessageIds, Instant syncedAt);
 }

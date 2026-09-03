@@ -1,6 +1,7 @@
 package com.nathanpaiva.jobtracker.adapters.persistence;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,7 @@ import com.nathanpaiva.jobtracker.domain.EmailClassification;
 import com.nathanpaiva.jobtracker.domain.UpdateType;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
@@ -97,6 +99,59 @@ class PostgresRepositoryAdapterIntegrationTest extends AbstractPostgresIntegrati
 
         assertThatThrownBy(() -> persistence.save(classificationWith("gmail-id-duplicate")))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    /**
+     * Everything saved is waiting for the spreadsheet until something says otherwise —
+     * which is what makes a failed sync recoverable rather than a lost day.
+     */
+    @Test
+    void reportsEverythingAsWaitingForTheSpreadsheetUntilItIsMarked() {
+        persistence.save(classificationWith("gmail-id-waiting-1"));
+        persistence.save(classificationWith("gmail-id-waiting-2"));
+
+        assertThat(persistence.findNotSyncedToSpreadsheet())
+                .extracting(EmailClassification::gmailMessageId)
+                .contains("gmail-id-waiting-1", "gmail-id-waiting-2");
+    }
+
+    @Test
+    void stopsReportingWhatHasReachedTheSpreadsheet() {
+        persistence.save(classificationWith("gmail-id-synced"));
+        persistence.save(classificationWith("gmail-id-not-synced"));
+
+        persistence.markSyncedToSpreadsheet(
+                List.of("gmail-id-synced"), Instant.parse("2026-09-03T10:00:00Z"));
+
+        assertThat(persistence.findNotSyncedToSpreadsheet())
+                .extracting(EmailClassification::gmailMessageId)
+                .doesNotContain("gmail-id-synced")
+                .contains("gmail-id-not-synced");
+
+        assertThat(rowFor("gmail-id-synced").get("sheet_synced_at")).isNotNull();
+    }
+
+    @Test
+    void returnsTheOldestFirstSoTheSheetReadsInOrder() {
+        persistence.save(classificationAt("gmail-id-newer", RECEIVED_AT.plusSeconds(60)));
+        persistence.save(classificationAt("gmail-id-older", RECEIVED_AT));
+
+        assertThat(persistence.findNotSyncedToSpreadsheet())
+                .extracting(EmailClassification::gmailMessageId)
+                .containsSubsequence("gmail-id-older", "gmail-id-newer");
+    }
+
+    @Test
+    void marksNothingWhenGivenNothing() {
+        assertThatCode(() -> persistence.markSyncedToSpreadsheet(
+                List.of(), Instant.parse("2026-09-03T10:00:00Z")))
+                .doesNotThrowAnyException();
+    }
+
+    private static EmailClassification classificationAt(String gmailMessageId, Instant receivedAt) {
+        return new EmailClassification(
+                gmailMessageId, receivedAt, "greenhouse.io", null, null, null,
+                UpdateType.OTHER, null, false);
     }
 
     private static EmailClassification classificationWith(String gmailMessageId) {
