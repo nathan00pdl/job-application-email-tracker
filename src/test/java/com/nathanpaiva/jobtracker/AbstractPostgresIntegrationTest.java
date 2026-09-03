@@ -1,6 +1,13 @@
 package com.nathanpaiva.jobtracker;
 
+import java.nio.charset.StandardCharsets;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
+
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -41,7 +48,8 @@ import org.testcontainers.utility.DockerImageName;
         "gmail.refresh-token=test-refresh-token",
         // Without this, booting a context here would start the daily scan and
         // reach for a real mailbox with fake credentials.
-        "jobtracker.run-on-startup=false"
+        "jobtracker.run-on-startup=false",
+        "google.sheets.spreadsheet-id=test-spreadsheet-id"
 })
 public abstract class AbstractPostgresIntegrationTest {
 
@@ -55,5 +63,44 @@ public abstract class AbstractPostgresIntegrationTest {
 
     static {
         POSTGRES.start();
+    }
+
+    /**
+     * A throwaway service account key, generated fresh in this JVM.
+     *
+     * <p>Building the Sheets client parses the key, so a made-up string will not do. The
+     * obvious alternative — committing a fake key — is worse than it looks: a private key
+     * in the repository trips secret scanning, and teaches whoever reads it that keys in
+     * source control are sometimes acceptable. Generating one here costs about a tenth of
+     * a second and leaves nothing behind.
+     *
+     * <p>It grants nothing. There is no account on the other side of it.
+     */
+    @DynamicPropertySource
+    static void throwawayServiceAccountKey(DynamicPropertyRegistry registry) {
+        registry.add("google.sheets.credentials",
+                AbstractPostgresIntegrationTest::generateServiceAccountKey);
+    }
+
+    private static String generateServiceAccountKey() {
+        try {
+            KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+            generator.initialize(2048);
+            String pem = "-----BEGIN PRIVATE KEY-----\\n"
+                    + Base64.getEncoder().encodeToString(generator.generateKeyPair()
+                            .getPrivate().getEncoded())
+                    + "\\n-----END PRIVATE KEY-----\\n";
+
+            String json = """
+                    {"type":"service_account","project_id":"test","private_key_id":"test",\
+                    "private_key":"%s",\
+                    "client_email":"test@test.iam.gserviceaccount.com","client_id":"1",\
+                    "token_uri":"https://oauth2.googleapis.com/token"}"""
+                    .formatted(pem);
+
+            return Base64.getEncoder().encodeToString(json.getBytes(StandardCharsets.UTF_8));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("RSA is required by every JVM", e);
+        }
     }
 }

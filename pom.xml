@@ -22,6 +22,7 @@
         <testcontainers.version>2.0.5</testcontainers.version>
         <google-api-services-gmail.version>v1-rev20260727-2.0.0</google-api-services-gmail.version>
         <google-auth-library.version>1.51.0</google-auth-library.version>
+        <google-api-services-sheets.version>v4-rev20260610-2.0.0</google-api-services-sheets.version>
     </properties>
 
     <dependencyManagement>
@@ -89,6 +90,12 @@
             <groupId>com.google.auth</groupId>
             <artifactId>google-auth-library-oauth2-http</artifactId>
             <version>${google-auth-library.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.apis</groupId>
+            <artifactId>google-api-services-sheets</artifactId>
+            <version>${google-api-services-sheets.version}</version>
         </dependency>
 
         <dependency>
