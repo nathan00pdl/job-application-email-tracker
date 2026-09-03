@@ -38,3 +38,16 @@ gmail:
 # Tests turn it off: otherwise every context that boots would try to read a real mailbox.
 jobtracker:
   run-on-startup: ${RUN_ON_STARTUP:true}
+
+# The service account key, base64 encoded, and the sheet to write to. Encoding is not
+# decoration: the key is JSON with newlines, and one line survives both an .env file read
+# by the shell and a value pasted into a secrets form.
+#
+# The tab name has no default worth guessing — Google names the first tab after the
+# account's language, "Sheet1" or "Página1" — so this project asks for an explicit one.
+google:
+  sheets:
+    credentials: ${GOOGLE_SHEETS_CREDENTIALS}
+    spreadsheet-id: ${GOOGLE_SHEETS_SPREADSHEET_ID}
+    sheet-name: ${GOOGLE_SHEETS_SHEET_NAME:classifications}
+

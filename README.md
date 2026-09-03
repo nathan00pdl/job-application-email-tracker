@@ -145,6 +145,32 @@ many were not about a job application.
 
 To start it without scanning, set `RUN_ON_STARTUP=false`.
 
+## The spreadsheet
+
+Classifications are mirrored into a Google Sheet, which is where notes written by hand
+live — the database has no column for *what happened next*.
+
+Setting it up:
+
+1. Enable the Google Sheets API in the same Google Cloud project
+2. Create a **service account** and download its JSON key
+3. Create a spreadsheet, rename the first tab to `classifications`, and **share the
+   spreadsheet with the service account's email address** as an editor
+4. Add the first row by hand, as headers:
+   `gmail id · received at · sender domain · platform · company · role · update · urgent · summary`
+5. Encode the key and put it in `.env`:
+
+```bash
+base64 -w0 service-account-key.json
+```
+
+A service account is an identity of its own rather than something acting on your behalf.
+It reaches exactly the spreadsheets shared with it and nothing else, and it has no
+consent that expires — so none of the token renewal that the mailbox needs applies here.
+
+Rows are appended, never rewritten. Column J onwards is left alone, which is where notes
+belong.
+
 ## Checking the Gmail credentials
 
 One test reads the real mailbox. It runs only when `GMAIL_REFRESH_TOKEN` is set, so CI
