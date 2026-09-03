@@ -9,6 +9,7 @@ import com.nathanpaiva.jobtracker.application.RunDailyScanUseCase;
 import com.nathanpaiva.jobtracker.domain.EmailClassifier;
 import com.nathanpaiva.jobtracker.ports.EmailSourcePort;
 import com.nathanpaiva.jobtracker.ports.PersistencePort;
+import com.nathanpaiva.jobtracker.ports.SpreadsheetPort;
 
 /**
  * Builds the objects that make up the pipeline.
@@ -46,7 +47,8 @@ class PipelineConfiguration {
     RunDailyScanUseCase runDailyScanUseCase(EmailSourcePort emailSource,
                                             EmailClassifier classifier,
                                             PersistencePort persistence,
+                                            SpreadsheetPort spreadsheet,
                                             Clock clock) {
-        return new RunDailyScanUseCase(emailSource, classifier, persistence, clock);
+        return new RunDailyScanUseCase(emailSource, classifier, persistence, spreadsheet, clock);
     }
 }
