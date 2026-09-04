@@ -2,6 +2,7 @@ package com.nathanpaiva.jobtracker.adapters.sheets;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -26,13 +27,23 @@ class GoogleSheetsAdapter implements SpreadsheetPort {
     private static final Logger log = LoggerFactory.getLogger(GoogleSheetsAdapter.class);
 
     /**
-     * Dates are written as text in a fixed format rather than left to the spreadsheet to
-     * interpret. A sheet reading "03/09/2026" guesses the order of day and month from
-     * the account's locale, and guesses differently for the next reader.
+     * The reader of this sheet is in Brazil, so times are shown in their day.
+     *
+     * <p>An email that arrived at half past nine on a Thursday evening here is already
+     * Friday in UTC. Writing it in UTC would put it on the wrong day for the person
+     * reading the sheet.
+     *
+     * <p>Someone running this elsewhere changes this one line.
      */
-    private static final DateTimeFormatter TIMESTAMP =
-            DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss 'UTC'")
-                    .withZone(java.time.ZoneOffset.UTC);
+    private static final ZoneId READER_ZONE = ZoneId.of("America/Sao_Paulo");
+
+    /**
+     * Written as text, not left to the spreadsheet to interpret: with RAW input the cell
+     * keeps exactly these characters, instead of the sheet deciding from its own locale
+     * whether 04-09 is September or April.
+     */
+    private static final DateTimeFormatter RECEIVED_ON =
+            DateTimeFormatter.ofPattern("dd-MM-uuuu HH:mm").withZone(READER_ZONE);
 
     private final Sheets sheets;
     private final String spreadsheetId;
@@ -78,7 +89,7 @@ class GoogleSheetsAdapter implements SpreadsheetPort {
     private static List<Object> asRow(EmailClassification classification) {
         return List.of(
                 classification.gmailMessageId(),
-                TIMESTAMP.format(classification.receivedAt()),
+                RECEIVED_ON.format(classification.receivedAt()),
                 classification.senderDomain(),
                 orEmpty(classification.platform()),
                 orEmpty(classification.company()),

@@ -42,7 +42,7 @@ class GoogleSheetsAdapterTest {
 
         assertThat(lastBody.get())
                 .contains("gmail-id-1")
-                .contains("2026-09-03 13:45:07 UTC")
+                .contains("03-09-2026 10:45")
                 .contains("greenhouse.io")
                 .contains("Greenhouse")
                 .contains("Acme Corp")
@@ -71,7 +71,7 @@ class GoogleSheetsAdapterTest {
     void writesTheTimestampInAnUnambiguousFormat() {
         adapter("classifications").append(List.of(classification()));
 
-        assertThat(lastBody.get()).contains("2026-09-03 13:45:07 UTC");
+        assertThat(lastBody.get()).contains("03-09-2026");
     }
 
     @Test
