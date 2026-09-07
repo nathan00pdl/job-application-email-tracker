@@ -27,7 +27,7 @@ The system is fundamentally an orchestrator around external integrations (Gmail,
 - **`domain`** — core models and business rules. No framework dependencies, no knowledge of Gmail/Postgres/Sheets/WhatsApp. Contains the classifier (see below) and the digest-building logic.
 - **`application`** — use cases that orchestrate the domain through ports (e.g. `RunDailyScanUseCase`).
 - **`ports`** — interfaces the domain/application layer depends on:
-  - `EmailSourcePort` — fetch candidate emails from the last 24h
+  - `EmailSourcePort` — fetch emails received after a given instant (how far back to look is the use case's decision, not the port's)
   - `PersistencePort` — read/write `EmailClassification` records
   - `SpreadsheetPort` — sync records to the dashboard
   - `NotificationPort` — send the daily summary / failure alert
@@ -41,16 +41,19 @@ Swapping an integration (e.g. WhatsApp provider, database host) means writing a 
 
 ## Daily pipeline
 
-1. GitHub Actions triggers `daily-run.yml` on a daily cron schedule; a fresh Ubuntu runner is provisioned.
-2. Secrets are injected as environment variables from GitHub Secrets.
-3. `GmailApiAdapter` fetches emails received in the last 24h (`gmail.readonly` scope only).
+Steps marked _(not built yet)_ describe the intended design. Today a run is started by hand
+with `mvn spring-boot:run`; steps 3 to 7 are what already works.
+
+1. GitHub Actions triggers `daily-run.yml` on a daily cron schedule; a fresh Ubuntu runner is provisioned. _(not built yet)_
+2. Secrets are injected as environment variables from GitHub Secrets. _(not built yet — locally they come from `.env`)_
+3. `GmailApiAdapter` fetches emails received in the last 26h (`gmail.readonly` scope only). The window is wider than a day on purpose: if a run is late or fails, an exact 24h window would leave emails behind. Re-reading costs nothing, because step 4 discards what was already seen.
 4. Each email is checked against `gmail_message_id` in the database — if it already exists, it is skipped (idempotency, see below).
 5. `EmailClassifier` reads each email. It answers with a classification, or with nothing when the email is not about a job application — and those are dropped without being recorded.
 6. Classifications are persisted in Postgres, the source of truth.
 7. New/unsynced records (`sheet_synced_at IS NULL`) are written to the Google Sheet.
-8. A WhatsApp message is sent with the daily summary — every day, even when there is nothing new.
-9. If any external service is unreachable and prevents completion (not a per-email classification failure), the job fails visibly: GitHub Actions' built-in failure email fires automatically, and a final step sends a separate WhatsApp alert using a distinct message template.
-10. The runner is destroyed. Nothing stays running between executions.
+8. A WhatsApp message is sent with the daily summary — every day, even when there is nothing new. _(not built yet)_
+9. If any external service is unreachable and prevents completion (not a per-email classification failure), the job fails visibly: GitHub Actions' built-in failure email fires automatically, and a final step sends a separate WhatsApp alert using a distinct message template. _(not built yet)_
+10. The runner is destroyed. Nothing stays running between executions. _(not built yet — though a local run is already a process that starts, works and exits)_
 
 Per-item failures (a single email failing classification) are caught and logged individually; they do not abort processing of the remaining emails in that run. Failures connecting to a whole service (e.g. Postgres unreachable) abort the run, since nothing can be persisted.
 

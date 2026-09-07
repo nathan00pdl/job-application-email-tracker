@@ -13,7 +13,8 @@ With your permission, the app reads messages from your own Gmail mailbox using t
 **cannot** send, delete, or change anything in your mailbox, and it does not request any
 other Google permission.
 
-Each run looks only at messages received in the last 24 hours.
+Each run looks only at messages received in the last 26 hours. The window is slightly
+wider than a day so that a late or failed run does not skip messages.
 
 ## What it does with them
 
