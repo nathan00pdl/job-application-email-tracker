@@ -6,76 +6,22 @@ See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full design.
 
 ## Architecture
 
-```mermaid
-flowchart TB
-    cron([GitHub Actions · daily cron]):::outside
+![Hexagonal architecture: the domain and the use case inside the hexagon, three ports on its edges, the adapters that implement them outside, and the systems they talk to.](docs/architecture.svg)
 
-    subgraph sgDriving["driving adapter"]
-        runner["DailyScanRunner"]:::adapter
-    end
+The three dashed arrows are the point. They run from the adapters **into** the ports:
+the interfaces are declared on the inside, in the language of the problem, and the code
+that talks to Gmail, PostgreSQL and Google Sheets adapts itself to them. Nothing in
+`domain` or `application` names a vendor, which is why the whole daily run can be tested
+against lists in memory.
 
-    subgraph sgApp["application"]
-        usecase["RunDailyScanUseCase<br/><i>the order of the steps</i>"]:::app
-    end
+The dashed slot on the top edge is there on purpose: this project has no driving port yet.
+`DailyScanRunner` calls `RunDailyScanUseCase` directly, because a scheduled run is the
+only way to start the application. An HTTP endpoint or a CLI command is what would turn
+that slot into an interface.
 
-    subgraph sgDomain["domain"]
-        classifier["EmailClassifier<br/><i>the rules</i>"]:::domain
-        model["EmailClassification<br/>IncomingEmail · UpdateType"]:::domain
-    end
-
-    subgraph sgPorts["ports"]
-        source["EmailSourcePort"]:::port
-        store["PersistencePort"]:::port
-        sheet["SpreadsheetPort"]:::port
-    end
-
-    subgraph sgDriven["driven adapters"]
-        gmail["GmailApiAdapter"]:::adapter
-        postgres["PostgresRepositoryAdapter"]:::adapter
-        sheets["GoogleSheetsAdapter"]:::adapter
-    end
-
-    gmailapi[(Gmail API)]:::outside
-    db[(PostgreSQL)]:::outside
-    sheetsapi[(Google Sheets API)]:::outside
-
-    cron --> runner
-    runner --> usecase
-    usecase --> classifier
-    usecase --> source
-    usecase --> store
-    usecase --> sheet
-    classifier --> model
-    gmail -. implements .-> source
-    postgres -. implements .-> store
-    sheets -. implements .-> sheet
-    gmail --> gmailapi
-    postgres --> db
-    sheets --> sheetsapi
-
-    classDef domain  fill:#FDE3C8,stroke:#C2410C,color:#1F2328
-    classDef app     fill:#D6E6FB,stroke:#1D4ED8,color:#1F2328
-    classDef port    fill:#E4DAFC,stroke:#6D28D9,color:#1F2328
-    classDef adapter fill:#CDF0DC,stroke:#15803D,color:#1F2328
-    classDef outside fill:#E7E9EC,stroke:#4B5563,color:#1F2328
-
-    style sgDomain  fill:#FFF6EC,stroke:#C2410C,color:#1F2328
-    style sgApp     fill:#F2F7FE,stroke:#1D4ED8,color:#1F2328
-    style sgPorts   fill:#F6F2FE,stroke:#6D28D9,color:#1F2328
-    style sgDriving fill:#F1FBF5,stroke:#15803D,color:#1F2328
-    style sgDriven  fill:#F1FBF5,stroke:#15803D,color:#1F2328
-
-    linkStyle 7,8,9 stroke:#6D28D9,stroke-width:2px
-```
-
-Colour marks the layer: orange for the domain, blue for the application, purple for the
-ports, green for the adapters, grey for anything outside this codebase.
-
-The three dotted arrows are the point. Everything else flows downward, but the adapters
-point **back up** at the ports: the interfaces are declared on the inside, in the
-language of the problem, and the code that talks to Gmail, PostgreSQL and Google Sheets
-adapts itself to them. Nothing in `domain` or `application` names a vendor, which is why
-the whole daily run can be tested against lists in memory.
+`PipelineConfiguration` sits outside the hexagon because it is the wiring: it builds the
+objects and connects them, which is what lets `domain` and `application` carry no
+framework annotation at all.
 
 `application` holds the order of the steps and no business rules; `domain` holds the
 rules and knows nothing about order, storage or the network.
