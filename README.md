@@ -1,6 +1,6 @@
 # job-application-email-tracker
 
-A daily job that scans a Gmail inbox for emails about job applications, classifies them with a rules filter + Claude, saves the results in PostgreSQL, copies them into a Google Sheet, and sends a daily summary over WhatsApp.
+A daily job that scans a Gmail inbox for emails about job applications, classifies them with a set of rules that runs locally, saves the results in PostgreSQL, and copies them into a Google Sheet. A daily summary over WhatsApp is still to come.
 
 See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full design.
 
@@ -26,26 +26,32 @@ flowchart TB
     subgraph sgPorts["ports"]
         source["EmailSourcePort"]:::port
         store["PersistencePort"]:::port
+        sheet["SpreadsheetPort"]:::port
     end
 
     subgraph sgDriven["driven adapters"]
         gmail["GmailApiAdapter"]:::adapter
         postgres["PostgresRepositoryAdapter"]:::adapter
+        sheets["GoogleSheetsAdapter"]:::adapter
     end
 
     gmailapi[(Gmail API)]:::outside
     db[(PostgreSQL)]:::outside
+    sheetsapi[(Google Sheets API)]:::outside
 
     cron --> runner
     runner --> usecase
     usecase --> classifier
     usecase --> source
     usecase --> store
+    usecase --> sheet
     classifier --> model
     gmail -. implements .-> source
     postgres -. implements .-> store
+    sheets -. implements .-> sheet
     gmail --> gmailapi
     postgres --> db
+    sheets --> sheetsapi
 
     classDef domain  fill:#FDE3C8,stroke:#C2410C,color:#1F2328
     classDef app     fill:#D6E6FB,stroke:#1D4ED8,color:#1F2328
@@ -59,17 +65,17 @@ flowchart TB
     style sgDriving fill:#F1FBF5,stroke:#15803D,color:#1F2328
     style sgDriven  fill:#F1FBF5,stroke:#15803D,color:#1F2328
 
-    linkStyle 6,7 stroke:#6D28D9,stroke-width:2px
+    linkStyle 7,8,9 stroke:#6D28D9,stroke-width:2px
 ```
 
 Colour marks the layer: orange for the domain, blue for the application, purple for the
 ports, green for the adapters, grey for anything outside this codebase.
 
-The two dotted arrows are the point. Everything else flows downward, but the adapters
+The three dotted arrows are the point. Everything else flows downward, but the adapters
 point **back up** at the ports: the interfaces are declared on the inside, in the
-language of the problem, and the code that talks to Gmail and PostgreSQL adapts itself to
-them. Nothing in `domain` or `application` names a vendor, which is why the whole daily
-run can be tested against two lists in memory.
+language of the problem, and the code that talks to Gmail, PostgreSQL and Google Sheets
+adapts itself to them. Nothing in `domain` or `application` names a vendor, which is why
+the whole daily run can be tested against lists in memory.
 
 `application` holds the order of the steps and no business rules; `domain` holds the
 rules and knows nothing about order, storage or the network.
