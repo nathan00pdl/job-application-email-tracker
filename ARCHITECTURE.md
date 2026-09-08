@@ -122,8 +122,17 @@ A separate, distinct template is used for the job-failure alert described in the
 - **Secrets:** OAuth tokens, service account credentials, the Neon connection string, and the WhatsApp access token are never committed. They live in GitHub Secrets and are injected as environment variables at runtime. GitHub Secret Scanning + push protection is enabled on the repository.
 - **Least privilege:** Gmail access is `gmail.readonly` only; the Sheets service account is shared with a single specific spreadsheet, not the whole Drive; the Neon database user has only the permissions this application needs.
 - **SQL injection:** all persistence goes through Spring Data JPA / parameterized queries; no manual string concatenation into SQL.
-- **Dependency vulnerabilities:** Dependabot is enabled on the repository; OWASP Dependency-Check (or equivalent) runs as a CI step and can fail the build on critical findings.
-- **Static analysis:** Semgrep (`semgrep --config auto .`) and SonarCloud run in CI, covering OWASP Top 10 patterns and general code quality/security smells.
+- **Dependency vulnerabilities:** Dependabot is enabled on the repository, with its alerts and
+  automatic fixes turned on. On every pull request, `dependency-review.yml` inspects the
+  dependencies the change adds and blocks the merge on anything `moderate` or above; low
+  findings are reported in the summary without blocking, so the gate stays about things worth
+  acting on.
+- **Static analysis:** two tools, both on every pull request.
+  - **Semgrep**, in `ci.yml`, against the `p/java` and `p/security-audit` rule sets. They are
+    named explicitly rather than using `--config auto`, which needs an account and reports usage
+    back. A finding fails the job (`--error`) and is also uploaded to the Security tab.
+  - **CodeQL**, in `codeql.yml`, which compiles the project and follows data flow — it finds
+    what pattern matching cannot. Both report zero findings today.
 - **Container hardening:** the Postgres dev container uses an official minimal image; if the application is ever containerized, it would run as a non-root user from a minimal JRE base image, with a `.dockerignore` excluding any credential files.
 - **CI hardening:** third-party GitHub Actions are pinned to specific versions; workflow `permissions` are scoped explicitly (`contents: read` by default) rather than left at the broad default.
 - **Transport security:** the Neon connection enforces TLS.
@@ -137,12 +146,20 @@ A separate, distinct template is used for the job-failure alert described in the
 
 ## CI/CD
 
-Two separate GitHub Actions workflows:
+Three GitHub Actions workflows guard `main`, each triggered on `push`/`pull_request`:
 
-- **`ci.yml`** — triggered on `push`/`pull_request`. Runs the build, unit tests, integration tests (with a Testcontainers-managed Postgres), Semgrep, and Dependabot/dependency checks. This is what guards the `main` branch.
-- **`daily-run.yml`** — triggered on a daily `schedule` cron. Runs the production pipeline described above against the real external services.
+- **`ci.yml`** — two independent jobs that run at the same time: the build with unit and integration tests (the integration ones start their own Postgres through Testcontainers), and Semgrep.
+- **`codeql.yml`** — compiles the project and runs CodeQL's data-flow analysis.
+- **`dependency-review.yml`** — inspects the dependencies a pull request adds.
 
-Keeping them separate avoids mixing "code validation" with "operational execution" in the same workflow, and each keeps its own independent run history in the Actions tab.
+A fourth is planned and does not exist yet:
+
+- **`daily-run.yml`** — a daily `schedule` cron running the pipeline against the real external services. _(not built yet)_
+
+Keeping execution separate from validation is deliberate: it avoids mixing "is this code
+correct" with "did today's run work" in one workflow, and each keeps its own run history in
+the Actions tab. The three that exist are split from each other for a plainer reason —
+independent jobs run in parallel, and neither waits on the other.
 
 ## License
 
