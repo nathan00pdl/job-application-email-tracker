@@ -36,6 +36,19 @@ import java.util.TreeSet;
  * <p>An empty digest is normal and valid: a day with no news is news. It covers no
  * period, because there is nothing in it to read a period from.
  *
+ * <p><b>Pattern — value object, with a factory method.</b> It has no identity: two
+ * digests holding the same numbers are the same digest, which is what {@code record}
+ * gives for free. {@link #of(java.util.Collection)} exists because a constructor should
+ * not iterate a collection to work out its own arguments — a named factory can do work
+ * a constructor should not, and reads as what it does.
+ *
+ * <p><b>Principle — fail fast.</b> The checks in the compact constructor mean an invalid
+ * digest cannot exist at all, so no later code has to ask whether the one it holds makes
+ * sense. Validating at the boundary once beats defending everywhere forever.
+ *
+ * <p>An empty digest is normal and valid: a day with no news is news. It covers no
+ * period, because there is nothing in it to read a period from.
+ *
  * @param total        how many classifications the digest covers
  * @param countsByType how many of each kind, holding only the kinds that occurred
  * @param urgent       how many of them ask for something time-sensitive

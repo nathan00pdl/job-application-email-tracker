@@ -25,6 +25,11 @@ import java.util.Set;
  * a wrong company is worse than an empty one. The platform comes from the sender's
  * domain, which is a fact rather than a guess.
  *
+ * <p><b>Principle — Single Responsibility, from the other side.</b> This is the only
+ * class allowed to decide what an email <em>means</em>. It knows nothing about order,
+ * storage or delivery, and {@link com.nathanpaiva.jobtracker.application.RunDailyScanUseCase}
+ * knows nothing about meaning. A new phrase changes this file and no other.
+ *
  * <p>It depends on nothing: no framework, no network, no clock. Which is why every case
  * below can be checked in a plain unit test.
  */

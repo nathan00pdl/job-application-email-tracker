@@ -22,6 +22,12 @@ import com.nathanpaiva.jobtracker.application.RunDailyScanUseCase;
  * <p>Failures are not caught. If the mailbox or the database cannot be reached, the
  * exception ends the run and the process exits with a non-zero status, which is what
  * makes a failed nightly job show up as failed instead of quietly reporting an empty
+ * <p><b>Principle — Inversion of Control.</b> Nothing here calls the framework: the
+ * framework calls this. That is a different inversion from Dependency Inversion — that
+ * one is about <em>what you depend on</em>, this one about <em>who is in charge of the
+ * flow</em>. Implementing {@code ApplicationRunner} is handing Spring a callback and
+ * letting it decide when the moment has come.
+ *
  * day.
  */
 @Component

@@ -11,6 +11,17 @@ import com.nathanpaiva.jobtracker.domain.IncomingEmail;
  * <p>The interface says nothing about Gmail. Reading the same mailbox over IMAP, or a
  * different mailbox entirely, would mean a different adapter and no change anywhere
  * else — the domain, the rule filter and the classifier never learn where an email
+ * <p><b>Principle — Open/Closed.</b> Reading mail from somewhere else is an
+ * <em>extension</em>: a new class implementing this interface, annotated
+ * {@code @Component}. It is not an <em>edit</em> — no line of {@code domain} or
+ * {@code application} changes. An abstraction is what turns "modify" into "add".
+ *
+ * <p><b>Principle — substitutability (Liskov).</b> There is no inheritance tree here,
+ * so this shows up in the mildest form the principle has: every implementation must
+ * honour the same contract. The in-memory fake used in tests returns emails received
+ * after the instant, oldest first, exactly like the Gmail adapter. If it did not, the
+ * test would pass while proving nothing.
+ *
  * came from.
  */
 public interface EmailSourcePort {

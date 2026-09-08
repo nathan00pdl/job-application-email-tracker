@@ -22,6 +22,13 @@ import com.nathanpaiva.jobtracker.ports.SpreadsheetPort;
  * <p>The adapters do not appear below. They are annotated with {@code @Component} and
  * found on their own, and Spring passes them in wherever a port is asked for — which is
  * how {@link RunDailyScanUseCase} ends up talking to Gmail and PostgreSQL without ever
+ * <p><b>Principle — where the inversion is realised.</b> Depending on an abstraction
+ * only pays off if something else chooses the implementation. That choice is made here,
+ * by type: a constructor asks for {@code EmailSourcePort} and Spring looks for a bean
+ * that implements it. This is also why the class sits outside the hexagon — it is the
+ * one place allowed to know both sides, and putting it inside would drag the framework
+ * in with it.
+ *
  * naming either.
  */
 @Configuration

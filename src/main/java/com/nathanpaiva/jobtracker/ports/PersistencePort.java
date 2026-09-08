@@ -16,6 +16,14 @@ import com.nathanpaiva.jobtracker.domain.EmailClassification;
  *
  * <p>It stays this small on purpose. Reading the rows that still have to be copied to
  * the spreadsheet is real, but it belongs to the step that builds the spreadsheet sync,
+ * <p><b>Principle — Interface Segregation.</b> Behind this port sits
+ * {@code EmailClassificationJpaRepository}, which inherits around twenty-five methods
+ * from Spring Data — {@code deleteAll()} among them. This interface exposes four. The
+ * narrowing is the point: a caller cannot reach for a method it was never meant to use,
+ * and the application depends on exactly what it needs and nothing more. Segregation
+ * here is an act, not an accident — the vendor offered the wide interface and the port
+ * declined it.
+ *
  * not here. A port that grows ahead of its callers becomes a list of guesses.
  */
 public interface PersistencePort {

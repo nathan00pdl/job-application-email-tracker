@@ -20,6 +20,12 @@ import com.nathanpaiva.jobtracker.domain.IncomingEmail;
  *
  * <p>It is a pure function — no network, no clock, no state — which is the whole reason
  * it is separate from the adapter. All the awkward cases live here and can be tested by
+ * <p><b>Pattern — anti-corruption layer.</b> A boundary whose whole job is to stop a
+ * foreign model from leaking inward. Without it, Google's header pairs and MIME tree
+ * would spread through the codebase, and every class touching an email would depend on
+ * the shape of one vendor's API. There is a matching boundary on the database side, in
+ * {@code EmailClassificationEntity}.
+ *
  * building a {@code Message} by hand, with no credentials and no calls to Google.
  */
 final class GmailMessageMapper {

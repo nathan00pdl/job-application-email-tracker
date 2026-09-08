@@ -24,6 +24,12 @@ import com.nathanpaiva.jobtracker.ports.SpreadsheetPort;
  * on the content of an email, it is in the wrong place.
  *
  * <p>It knows no vendor either: it works the same whether emails come from the Gmail API
+ * <p><b>Principle — Single Responsibility.</b> "One responsibility" is better read as
+ * "one reason to change". This class changes when the <em>order</em> of the steps
+ * changes; {@link EmailClassifier} changes when the <em>rules</em> change. Two reasons,
+ * two classes. The test stated above — a decision here must never depend on the content
+ * of an email — is that principle written as something you can check.
+ *
  * or anywhere else, which is what lets the whole run be tested with a list in memory.
  */
 public class RunDailyScanUseCase {
@@ -44,6 +50,20 @@ public class RunDailyScanUseCase {
     private final SpreadsheetPort spreadsheet;
     private final Clock clock;
 
+    /**
+     * <b>Principle — Dependency Inversion, and how it differs from Dependency
+     * Injection.</b> The injection is only the mechanism: collaborators arrive as
+     * arguments instead of being created here. The principle is what those arguments
+     * <em>are</em> — ports, declared in a package that belongs to the inside, rather
+     * than the adapters that implement them.
+     *
+     * <p>The difference is easy to miss. Taking a {@code GmailApiAdapter} here would
+     * still be dependency injection, and it would still be testable with a subclass.
+     * But this class would then name Google, {@code application} would depend on an
+     * adapter, and the arrow of dependency would point outward. Both sides depend on
+     * the abstraction instead, and the abstraction is owned by the caller — that is the
+     * inversion.
+     */
     public RunDailyScanUseCase(EmailSourcePort emailSource, EmailClassifier classifier,
                                PersistencePort persistence, SpreadsheetPort spreadsheet,
                                Clock clock) {

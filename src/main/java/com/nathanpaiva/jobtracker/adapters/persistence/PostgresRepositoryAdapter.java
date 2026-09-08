@@ -20,6 +20,17 @@ import com.nathanpaiva.jobtracker.ports.PersistencePort;
  *
  * <p>Package-private, like the entity and the repository. Spring builds it and injects
  * it wherever a {@code PersistencePort} is asked for, so no caller ever names this class
+ * <p><b>Pattern — Adapter.</b> The name is literal: it makes one interface
+ * ({@code EmailClassificationJpaRepository}, in the vendor's terms) usable through
+ * another ({@code PersistencePort}, in the domain's terms). The class holds no logic
+ * because an adapter that decides things is no longer an adapter.
+ *
+ * <p><b>Pattern — Proxy, twice, neither written here.</b> The repository it receives has
+ * no implementation in the source: Spring Data builds one at startup. And this class is
+ * itself wrapped in a generated subclass, because {@code @Transactional} needs somewhere
+ * to open the transaction before the method body runs. Both are why a call through a
+ * reference behaves differently from a call to {@code this}.
+ *
  * and no caller can accidentally depend on the fact that storage happens to be JPA.
  */
 @Component
