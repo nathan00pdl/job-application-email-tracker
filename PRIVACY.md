@@ -26,7 +26,7 @@ wider than a day so that a late or failed run does not skip messages.
    stored** — not the subject, not the sender, not the fact that they were read.
 3. For the ones that are, a small set of fields is saved: the Gmail message id, the time
    it arrived, the sender's domain, the hiring platform, the kind of update, and the
-   subject line as a summary.
+   subject line.
 
 ## Where the data is stored
 

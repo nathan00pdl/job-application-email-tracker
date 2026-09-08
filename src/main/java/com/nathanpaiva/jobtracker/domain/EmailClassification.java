@@ -6,8 +6,7 @@ import java.util.Objects;
 /**
  * One Gmail message the daily scan has looked at, and how it was classified.
  *
- * <p>This is the centre of the domain. It knows nothing about Gmail, Claude, JPA or
- * Spring. That is what lets us build it and check it in a plain unit test, with no
+ * <p>This is the centre of the domain. It knows nothing about Gmail, JPA or Spring. That is what lets us build it and check it in a plain unit test, with no
  * container and no mocking framework.
  *
  * <p>It is a record, so it cannot change after it is created. It describes something
