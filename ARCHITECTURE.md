@@ -13,8 +13,9 @@ This is a personal study project built to demonstrate backend engineering practi
 - **Database:** PostgreSQL, hosted on Neon (free tier)
 - **Schema migrations:** Flyway
 - **Containerization:** Docker Compose, used for the local PostgreSQL instance only (the application itself runs directly via Maven/JVM locally, and inside the GitHub Actions runner in production — containerizing the app adds no benefit in either environment)
-- **Scheduling / execution:** GitHub Actions (`schedule` cron trigger), no always-on server
-- **External integrations:** Gmail API, Google Sheets API, Meta WhatsApp Cloud API
+- **Build tool:** pinned with the Maven wrapper (`./mvnw`), so every machine and CI use the same version
+- **Scheduling / execution:** GitHub Actions (`schedule` cron trigger), no always-on server _(planned; today a run is started by hand)_
+- **External integrations:** Gmail API, Google Sheets API, and Meta WhatsApp Cloud API _(planned)_
 
 ## Language convention
 
@@ -30,12 +31,14 @@ The system is fundamentally an orchestrator around external integrations (Gmail,
   - `EmailSourcePort` — fetch emails received after a given instant (how far back to look is the use case's decision, not the port's)
   - `PersistencePort` — read/write `EmailClassification` records
   - `SpreadsheetPort` — sync records to the dashboard
-  - `NotificationPort` — send the daily summary / failure alert
+  - `NotificationPort` — send the daily summary / failure alert _(not built yet)_
 - **`adapters`** — concrete implementations of each port:
+  - `adapters/runner` → `DailyScanRunner implements ApplicationRunner` — the driving side:
+    the only thing that starts a run today
   - `adapters/gmail` → `GmailApiAdapter implements EmailSourcePort`
   - `adapters/persistence` → `PostgresRepositoryAdapter implements PersistencePort` (Spring Data JPA)
   - `adapters/sheets` → `GoogleSheetsAdapter implements SpreadsheetPort`
-  - `adapters/whatsapp` → `MetaWhatsAppAdapter implements NotificationPort`
+  - `adapters/whatsapp` → `MetaWhatsAppAdapter implements NotificationPort` _(not built yet)_
 
 Swapping an integration (e.g. WhatsApp provider, database host) means writing a new adapter — the domain and application layers are untouched. This also makes the domain trivially testable without mocking frameworks, since it only depends on interfaces.
 
