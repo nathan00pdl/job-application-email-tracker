@@ -109,7 +109,7 @@ Setting it up:
 3. Create a spreadsheet, rename the first tab to `classifications`, and **share the
    spreadsheet with the service account's email address** as an editor
 4. Add the first row by hand, as headers:
-   `gmail id · received at · sender domain · platform · company · role · update · urgent · summary`
+   `gmail id · received at · sender domain · platform · company · role · update · urgent · subject`
 5. Encode the key and put it in `.env`:
 
 ```bash

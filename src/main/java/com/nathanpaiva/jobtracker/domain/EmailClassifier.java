@@ -136,7 +136,7 @@ public final class EmailClassifier {
                 null,
                 null,
                 updateTypeOf(text),
-                summaryOf(email),
+                subjectOf(email),
                 isUrgent(text)));
     }
 
@@ -186,10 +186,10 @@ public final class EmailClassifier {
     }
 
     /**
-     * The subject, as written. Not a summary of the email, and not pretending to be one:
-     * it is the line the sender already chose to describe the message.
+     * The subject, as written. Nothing is derived from the email: this is the line the
+     * sender already chose to describe the message.
      */
-    private static String summaryOf(IncomingEmail email) {
+    private static String subjectOf(IncomingEmail email) {
         String subject = email.subject().strip();
         return subject.isEmpty() ? null : subject;
     }

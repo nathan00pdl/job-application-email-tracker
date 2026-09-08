@@ -24,12 +24,12 @@ class EmailClassificationsSchemaIntegrationTest extends AbstractPostgresIntegrat
     private JdbcTemplate jdbcTemplate;
 
     @Test
-    void appliesTheInitialMigration() {
+    void appliesEveryMigrationInOrder() {
         List<String> appliedVersions = jdbcTemplate.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success = true ORDER BY installed_rank",
                 String.class);
 
-        assertThat(appliedVersions).containsExactly("1", "2");
+        assertThat(appliedVersions).containsExactly("1", "2", "3");
     }
 
     @Test
@@ -40,7 +40,7 @@ class EmailClassificationsSchemaIntegrationTest extends AbstractPostgresIntegrat
 
         assertThat(columns).containsExactlyInAnyOrder(
                 "id", "gmail_message_id", "received_at", "sender_domain", "platform",
-                "company", "role_title", "update_type", "summary", "is_urgent",
+                "company", "role_title", "update_type", "subject", "is_urgent",
                 "manual_status", "sheet_synced_at", "created_at");
     }
 

@@ -31,7 +31,8 @@ import java.util.Objects;
  * @param company               the company hiring, when we can tell; may be null
  * @param roleTitle             the job title, when we can tell; may be null
  * @param updateType            the kind of news the email carries
- * @param summary               a short summary, kept in the email's original language; may be null
+ * @param subject               the email's subject line, as the sender wrote it, in its
+ *                              original language; may be null
  * @param urgent                whether the email asks for something time-sensitive
  */
 public record EmailClassification(
@@ -42,7 +43,7 @@ public record EmailClassification(
         String company,
         String roleTitle,
         UpdateType updateType,
-        String summary,
+        String subject,
         boolean urgent
 ) {
 
