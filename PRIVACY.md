@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Last updated: 2026-08-27
+Last updated: 2026-09-08
 
 **job-application-email-tracker** ("the app") is a personal, open-source project built
 and run by one person, for that person's own mailbox. It has no other users, no company
@@ -18,8 +18,9 @@ wider than a day so that a late or failed run does not skip messages.
 
 ## What it does with them
 
-1. The app reads the subject and body **on your machine, or on the GitHub Actions runner
-   that runs the daily job**, and matches them against a list of phrases. Nothing is sent
+1. The app reads the subject and body **on the author's own machine**, and matches them
+   against a list of phrases. (A scheduled run on a GitHub Actions runner is planned; it
+   does not exist yet.) Nothing is sent
    to any third party for analysis: there is no external classifier and no AI service
    involved.
 2. Emails that are not about a job application are ignored, and **nothing about them is
@@ -33,10 +34,13 @@ wider than a day so that a late or failed run does not skip messages.
 - A private PostgreSQL database hosted on Neon, reachable only with credentials held by
   the author.
 - A private Google Sheet owned by the same Google account, used as a dashboard.
-- A WhatsApp message with a daily summary, sent to the author's own number.
 
-Access credentials are stored as GitHub Actions secrets and are never committed to this
-repository.
+A daily summary sent to the author's own number over WhatsApp is planned and is not built
+yet. No message is sent anywhere today.
+
+Access credentials live in a local `.env` file on the author's machine, which is excluded
+from version control and never committed. When the scheduled run exists, they will be held
+as GitHub Actions secrets instead.
 
 ## What the app does not do
 
