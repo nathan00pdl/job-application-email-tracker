@@ -96,7 +96,7 @@ class GoogleSheetsAdapter implements SpreadsheetPort {
                 orEmpty(classification.roleTitle()),
                 classification.updateType().name(),
                 classification.urgent() ? "yes" : "no",
-                orEmpty(classification.summary()));
+                orEmpty(classification.subject()));
     }
 
     /** The Sheets API refuses nulls in a row; an empty cell is written as an empty string. */

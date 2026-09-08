@@ -67,8 +67,8 @@ class EmailClassificationEntity {
     @Column(name = "update_type", nullable = false, length = 50)
     private UpdateType updateType;
 
-    @Column(name = "summary", columnDefinition = "text")
-    private String summary;
+    @Column(name = "subject", columnDefinition = "text")
+    private String subject;
 
     @Column(name = "is_urgent", nullable = false)
     private boolean urgent;
@@ -86,7 +86,7 @@ class EmailClassificationEntity {
     EmailClassification toDomain() {
         return new EmailClassification(
                 gmailMessageId, receivedAt, senderDomain, platform, company, roleTitle,
-                updateType, summary, urgent);
+                updateType, subject, urgent);
     }
 
     /** Required by Hibernate, which builds entities by reflection. */
@@ -102,7 +102,7 @@ class EmailClassificationEntity {
         entity.company = classification.company();
         entity.roleTitle = classification.roleTitle();
         entity.updateType = classification.updateType();
-        entity.summary = classification.summary();
+        entity.subject = classification.subject();
         entity.urgent = classification.urgent();
         return entity;
     }

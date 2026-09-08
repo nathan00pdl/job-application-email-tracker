@@ -162,7 +162,7 @@ class EmailClassifierTest {
             assertThat(classification.receivedAt()).isEqualTo(RECEIVED_AT);
             assertThat(classification.senderDomain()).isEqualTo("gupy.io");
             assertThat(classification.platform()).isEqualTo("Gupy");
-            assertThat(classification.summary()).isEqualTo("Sua candidatura para backend");
+            assertThat(classification.subject()).isEqualTo("Sua candidatura para backend");
         });
     }
 
@@ -181,9 +181,9 @@ class EmailClassifierTest {
     }
 
     @Test
-    void leavesTheSummaryEmptyWhenTheSubjectIs() {
+    void leavesTheSubjectEmptyWhenTheEmailHasNone() {
         assertThat(classify("greenhouse.io", "")).get()
-                .extracting(EmailClassification::summary)
+                .extracting(EmailClassification::subject)
                 .isNull();
     }
 

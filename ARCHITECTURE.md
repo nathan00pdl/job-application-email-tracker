@@ -67,7 +67,7 @@ An email counts as being about an application when it either carries a phrase sh
 
 Phrases are read in order of finality — offer, rejection, interview, technical test, information request, acknowledgement — because a rejection almost always names the interview it is rejecting you after.
 
-The classifier never fills in the company or the role. Guessing those from phrases would produce values that look extracted but are not, and a wrong company is worse than an empty one. The platform comes from the sender's domain, which is a fact rather than a guess, and the summary is the subject line.
+The classifier never fills in the company or the role. Guessing those from phrases would produce values that look extracted but are not, and a wrong company is worse than an empty one. The platform comes from the sender's domain, which is a fact rather than a guess, and the subject column holds the subject line, copied as the sender wrote it.
 
 **Emails that are not about an application are never stored.** The existence of a record is the verdict, so no column says whether it counts. This also keeps unrelated personal mail — invoices, newsletters, private messages — out of the database entirely.
 
@@ -93,7 +93,7 @@ CREATE TABLE email_classifications (
     company                    VARCHAR(255),
     role_title                 VARCHAR(255),
     update_type                VARCHAR(50) NOT NULL,
-    summary                    TEXT,
+    subject                    TEXT,
     is_urgent                  BOOLEAN NOT NULL DEFAULT FALSE,
 
     manual_status               VARCHAR(50),

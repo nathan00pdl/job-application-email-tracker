@@ -53,7 +53,7 @@ class PostgresRepositoryAdapterIntegrationTest extends AbstractPostgresIntegrati
         assertThat(row.get("platform")).isEqualTo("Greenhouse");
         assertThat(row.get("company")).isEqualTo("Acme Corp");
         assertThat(row.get("role_title")).isEqualTo("Backend Engineer");
-        assertThat(row.get("summary")).isEqualTo("Convite para entrevista técnica");
+        assertThat(row.get("subject")).isEqualTo("Convite para entrevista técnica");
         assertThat(row.get("is_urgent")).isEqualTo(true);
     }
 
