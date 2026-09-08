@@ -36,9 +36,9 @@ public enum UpdateType {
      * About a job application, but none of the categories above.
      *
      * <p>This is a fallback for emails that genuinely fit nowhere else — a scheduling
-     * change, a note from a recruiter that carries no news. It is not there to catch bad
-     * output: the classifier answers against a schema that lists these seven values, so
-     * a category outside the list cannot come back.
+     * change, a note from a recruiter that carries no news. It is not there to catch a
+     * bad answer: the classifier picks a constant of this enum directly, so a category
+     * outside the list cannot come back.
      *
      * <p>A growing number of {@code OTHER} rows means a category is missing.
      */
