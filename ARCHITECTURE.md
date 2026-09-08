@@ -99,7 +99,6 @@ CREATE TABLE email_classifications (
     subject                    TEXT,
     is_urgent                  BOOLEAN NOT NULL DEFAULT FALSE,
 
-    manual_status               VARCHAR(50),
 
     sheet_synced_at             TIMESTAMPTZ,
     created_at                  TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -108,7 +107,7 @@ CREATE TABLE email_classifications (
 CREATE INDEX idx_email_classifications_received_at ON email_classifications (received_at);
 ```
 
-`update_type` is a `VARCHAR`, not a native Postgres `ENUM`, so new categories can be added without an `ALTER TYPE` migration — the allowed set is validated in the application layer instead. `manual_status` is left for the user to fill in manually in the Sheet (e.g. `responded`, `ignored`), building a longitudinal view of the application funnel over time.
+`update_type` is a `VARCHAR`, not a native Postgres `ENUM`, so new categories can be added without an `ALTER TYPE` migration — the allowed set is validated in the application layer instead. Notes about what happened next are written by hand in the spreadsheet, from column J onwards, which the sync never touches — the database has no column for them, and `V4` removed the one that tried.
 
 ## WhatsApp notification
 

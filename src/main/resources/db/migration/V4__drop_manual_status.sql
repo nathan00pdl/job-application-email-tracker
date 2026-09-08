@@ -1,0 +1,12 @@
+-- Nothing could ever fill this column.
+--
+-- It was meant to hold a note written by hand — "responded", "ignored" — so the row
+-- could carry what happened next. But the spreadsheet is the only place a note is
+-- actually written, and the sync only ever appends rows to it: nothing in this project
+-- reads the sheet back. There was no path from a note to this column, and there has not
+-- been one since V1.
+--
+-- The place for those notes already exists and works: column J onwards of the sheet,
+-- which the adapter deliberately never touches. A column that cannot be filled is not a
+-- feature waiting to happen, it is a claim the schema keeps making and cannot keep.
+ALTER TABLE email_classifications DROP COLUMN manual_status;
