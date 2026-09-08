@@ -27,9 +27,9 @@ import jakarta.persistence.Table;
  * outside this package can hold a reference to it. The only way in is
  * {@code PersistencePort}.
  *
- * <p>It carries four columns the domain record does not: {@code id} and
- * {@code created_at} belong to the database, {@code manual_status} is filled in by hand
- * in the spreadsheet, and {@code sheet_synced_at} is set by the spreadsheet sync.
+ * <p>It carries three columns the domain record does not: {@code id} and
+ * {@code created_at} belong to the database, and {@code sheet_synced_at} is set by the
+ * spreadsheet sync.
  */
 @Entity
 @Table(name = "email_classifications")
@@ -72,9 +72,6 @@ class EmailClassificationEntity {
 
     @Column(name = "is_urgent", nullable = false)
     private boolean urgent;
-
-    @Column(name = "manual_status", length = 50)
-    private String manualStatus;
 
     @Column(name = "sheet_synced_at")
     private Instant sheetSyncedAt;

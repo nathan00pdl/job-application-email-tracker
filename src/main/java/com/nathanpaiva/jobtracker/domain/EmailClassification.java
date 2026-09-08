@@ -18,10 +18,9 @@ import java.util.Objects;
  * turned into one of these and are never stored, so there is no field saying whether it
  * counts — every one of them does.
  *
- * <p>Four columns of {@code email_classifications} are left out on purpose.
+ * <p>Three columns of {@code email_classifications} are left out on purpose:
  * {@code id}, {@code created_at} and {@code sheet_synced_at} are internal tracking for
- * storage and syncing, and {@code manual_status} is filled in by hand in the
- * spreadsheet. None of them are part of what a classification is.
+ * storage and syncing. None of them are part of what a classification is.
  *
  * @param gmailMessageId        Gmail's id for the message; the key used to avoid
  *                              processing the same email twice

@@ -76,7 +76,6 @@ class PostgresRepositoryAdapterIntegrationTest extends AbstractPostgresIntegrati
 
         assertThat(row.get("id")).isNotNull();
         assertThat(row.get("created_at")).isNotNull();
-        assertThat(row.get("manual_status")).isNull();
         assertThat(row.get("sheet_synced_at")).isNull();
     }
 
