@@ -42,7 +42,7 @@ Swapping an integration (e.g. WhatsApp provider, database host) means writing a 
 ## Daily pipeline
 
 Steps marked _(not built yet)_ describe the intended design. Today a run is started by hand
-with `mvn spring-boot:run`; steps 3 to 7 are what already works.
+with `./mvnw spring-boot:run`; steps 3 to 7 are what already works.
 
 1. GitHub Actions triggers `daily-run.yml` on a daily cron schedule; a fresh Ubuntu runner is provisioned. _(not built yet)_
 2. Secrets are injected as environment variables from GitHub Secrets. _(not built yet — locally they come from `.env`)_

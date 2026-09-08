@@ -24,7 +24,7 @@ jobs:
           cache: maven
 
       - name: Build and test
-        run: mvn -B clean verify
+        run: ./mvnw -B clean verify
 
   # Pattern-based static analysis, alongside the build rather than after it: the two
   # jobs are independent, so they run at the same time and neither waits on the other.

@@ -56,7 +56,7 @@ jobs:
       # command; this project has one, so it is given instead. Tests are skipped because
       # ci.yml already runs them, and running them twice would only make this slower.
       - name: Compile
-        run: mvn -B clean compile -DskipTests
+        run: ./mvnw -B clean compile -DskipTests
 
       - name: Analyse
         uses: github/codeql-action/analyze@486fec2a3ea2626afcd8c7e9208b4f515078dd7e # v2.26.4

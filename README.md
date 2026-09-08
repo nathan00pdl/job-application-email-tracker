@@ -61,8 +61,14 @@ unrelated mail never reaches the database.
 ## Build & test
 
 ```bash
-mvn clean verify
+./mvnw clean verify
 ```
+
+`./mvnw` is the Maven wrapper: a script kept in the repository that downloads and runs
+the exact Maven version pinned in `.mvn/wrapper/maven-wrapper.properties`. You do not
+need Maven installed, and this machine, anyone else's and CI all build with the same
+version. The leading `./` matters — it means the script in this directory, not a command
+on your `PATH`.
 
 The integration tests start their own temporary PostgreSQL container, so
 `docker compose` does not have to be running for them.
@@ -73,7 +79,7 @@ Flyway applies any pending migrations on startup:
 
 ```bash
 set -a && source .env && set +a
-mvn spring-boot:run
+./mvnw spring-boot:run
 ```
 
 The database username and password have no default value: the application will not
@@ -88,7 +94,7 @@ it finds:
 ```bash
 docker compose up -d --wait
 set -a && source .env && set +a
-mvn spring-boot:run
+./mvnw spring-boot:run
 ```
 
 The application runs the scan once and exits — there is no server to leave running. It
@@ -130,7 +136,7 @@ skips it:
 
 ```bash
 set -a && source .env && set +a
-mvn test -Dtest=GmailApiManualVerificationTest
+./mvnw test -Dtest=GmailApiManualVerificationTest
 ```
 
 It prints how many emails were read and their sender domains — no subjects, no bodies.
