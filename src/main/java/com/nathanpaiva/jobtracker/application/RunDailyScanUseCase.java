@@ -44,6 +44,17 @@ public class RunDailyScanUseCase {
     private final SpreadsheetPort spreadsheet;
     private final Clock clock;
 
+    /**
+     * Takes ports, not adapters — and the difference between those two words is the
+     * whole of the dependency rule.
+     *
+     * <p>Receiving collaborators as arguments is <em>injection</em>: a mechanism, and by
+     * itself it proves nothing. Taking a {@code GmailApiAdapter} here would still be
+     * injection, and would still be testable. What matters is <em>what</em> the arguments
+     * are: interfaces declared in a package that belongs to the inside. That is what
+     * keeps this class from naming a vendor, and it is why the arrow of dependency points
+     * inward instead of out.
+     */
     public RunDailyScanUseCase(EmailSourcePort emailSource, EmailClassifier classifier,
                                PersistencePort persistence, SpreadsheetPort spreadsheet,
                                Clock clock) {
