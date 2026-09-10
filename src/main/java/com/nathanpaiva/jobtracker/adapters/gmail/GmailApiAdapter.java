@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import com.google.api.client.http.HttpResponseException;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.ListMessagesResponse;
 import com.google.api.services.gmail.model.Message;
@@ -34,6 +35,14 @@ class GmailApiAdapter implements EmailSourcePort {
     /** Gmail's alias for "the account that owns the credential". */
     private static final String AUTHENTICATED_USER = "me";
 
+    /**
+     * What Google answers when the refresh token is expired or revoked.
+     *
+     * <p>Worth naming because it is the failure this project meets most often: while the
+     * OAuth app is in Testing, Google expires the refresh token every seven days.
+     */
+    private static final String EXPIRED_CREDENTIAL = "invalid_grant";
+
     private final Gmail gmail;
 
     GmailApiAdapter(Gmail gmail) {
@@ -51,10 +60,48 @@ class GmailApiAdapter implements EmailSourcePort {
             log.info("read {} emails received after {}", emails.size(), since);
             return List.copyOf(emails);
         } catch (IOException e) {
+            if (mentionsExpiredCredential(e)) {
+                throw new IllegalStateException(
+                        "Gmail refused the credential (invalid_grant). The refresh token has "
+                                + "expired or was revoked: generate a new one and update "
+                                + "GMAIL_REFRESH_TOKEN.", e);
+            }
             // The mailbox being unreachable is not a per-email problem: nothing can be
             // processed, so the run should stop here rather than report an empty day.
             throw new UncheckedIOException("could not read the mailbox", e);
         }
+    }
+
+    /**
+     * Whether this failure is Google saying the credential is no longer good.
+     *
+     * <p>Without this, an expired token and an unreachable network produce the same
+     * sentence, and the one that happens every week is the one that says nothing. The
+     * answer is three levels down: an {@code IOException} wrapping a
+     * {@code GoogleAuthException} wrapping a 400 whose body carries the reason.
+     *
+     * <p>The body is what is inspected, not the status code. A 400 can mean several
+     * things, and only one of them is fixed by generating a new token.
+     *
+     * <p>The walk is bounded rather than following causes until null, so a cycle in the
+     * chain cannot hang the run.
+     */
+    private static boolean mentionsExpiredCredential(Throwable failure) {
+        Throwable cause = failure;
+        for (int depth = 0; cause != null && depth < 10; depth++, cause = cause.getCause()) {
+            if (cause instanceof HttpResponseException response
+                    && mentionsExpiredCredential(response.getContent())) {
+                return true;
+            }
+            if (mentionsExpiredCredential(cause.getMessage())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean mentionsExpiredCredential(String text) {
+        return text != null && text.contains(EXPIRED_CREDENTIAL);
     }
 
     /**
