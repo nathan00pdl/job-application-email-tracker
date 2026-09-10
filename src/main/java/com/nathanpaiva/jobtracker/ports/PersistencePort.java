@@ -56,4 +56,26 @@ public interface PersistencePort {
      * and the worst case is a duplicated row rather than a missing one.
      */
     void markSyncedToSpreadsheet(Collection<String> gmailMessageIds, Instant syncedAt);
+
+    /**
+     * Classifications that have not been delivered in a digest yet, oldest first.
+     *
+     * <p>A queue rather than a window over the last day. If a delivery fails, these rows
+     * stay here and the next digest carries them, instead of a day of news disappearing
+     * because one send failed. That matters because the digest is where these are
+     * actually read: one that never arrives loses information, not just a notice.
+     *
+     * <p>The period a digest covers is therefore read from what this returns, never
+     * configured — which is why {@code DailyDigest} has no clock and no window of its own.
+     */
+    List<EmailClassification> findNotSentInDigest();
+
+    /**
+     * Records that these were delivered in a digest, so the next one leaves them alone.
+     *
+     * <p>Called after the delivery succeeds, never before — the same order as the
+     * spreadsheet sync, for the same reason. Marking first would drop from the queue
+     * rows that never reached anyone.
+     */
+    void markSentInDigest(Collection<String> gmailMessageIds, Instant sentAt);
 }

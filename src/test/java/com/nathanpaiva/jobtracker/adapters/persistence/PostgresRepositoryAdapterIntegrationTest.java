@@ -140,6 +140,71 @@ class PostgresRepositoryAdapterIntegrationTest extends AbstractPostgresIntegrati
                 .containsSubsequence("gmail-id-older", "gmail-id-newer");
     }
 
+    /**
+     * The digest queue works the same way as the spreadsheet one, and for a sharper
+     * reason: the digest is where these are read, so one that never arrives loses
+     * information rather than just a notice.
+     */
+    @Test
+    void reportsEverythingAsWaitingForADigestUntilItIsMarked() {
+        persistence.save(classificationWith("gmail-id-undigested-1"));
+        persistence.save(classificationWith("gmail-id-undigested-2"));
+
+        assertThat(persistence.findNotSentInDigest())
+                .extracting(EmailClassification::gmailMessageId)
+                .contains("gmail-id-undigested-1", "gmail-id-undigested-2");
+    }
+
+    @Test
+    void stopsReportingWhatWasDeliveredInADigest() {
+        persistence.save(classificationWith("gmail-id-digested"));
+        persistence.save(classificationWith("gmail-id-not-digested"));
+
+        persistence.markSentInDigest(
+                List.of("gmail-id-digested"), Instant.parse("2026-09-10T09:00:00Z"));
+
+        assertThat(persistence.findNotSentInDigest())
+                .extracting(EmailClassification::gmailMessageId)
+                .doesNotContain("gmail-id-digested")
+                .contains("gmail-id-not-digested");
+
+        assertThat(rowFor("gmail-id-digested").get("digest_sent_at")).isNotNull();
+    }
+
+    /**
+     * The two queues are independent. A row already in the spreadsheet still owes a
+     * digest, and marking one must never move the other.
+     */
+    @Test
+    void keepsTheDigestQueueSeparateFromTheSpreadsheetQueue() {
+        persistence.save(classificationWith("gmail-id-two-queues"));
+
+        persistence.markSyncedToSpreadsheet(
+                List.of("gmail-id-two-queues"), Instant.parse("2026-09-10T09:00:00Z"));
+
+        assertThat(persistence.findNotSentInDigest())
+                .extracting(EmailClassification::gmailMessageId)
+                .contains("gmail-id-two-queues");
+        assertThat(rowFor("gmail-id-two-queues").get("digest_sent_at")).isNull();
+    }
+
+    @Test
+    void returnsTheOldestFirstSoTheDigestReadsInOrder() {
+        persistence.save(classificationAt("gmail-id-digest-newer", RECEIVED_AT.plusSeconds(60)));
+        persistence.save(classificationAt("gmail-id-digest-older", RECEIVED_AT));
+
+        assertThat(persistence.findNotSentInDigest())
+                .extracting(EmailClassification::gmailMessageId)
+                .containsSubsequence("gmail-id-digest-older", "gmail-id-digest-newer");
+    }
+
+    @Test
+    void marksNoDigestWhenGivenNothing() {
+        assertThatCode(() -> persistence.markSentInDigest(
+                List.of(), Instant.parse("2026-09-10T09:00:00Z")))
+                .doesNotThrowAnyException();
+    }
+
     @Test
     void marksNothingWhenGivenNothing() {
         assertThatCode(() -> persistence.markSyncedToSpreadsheet(

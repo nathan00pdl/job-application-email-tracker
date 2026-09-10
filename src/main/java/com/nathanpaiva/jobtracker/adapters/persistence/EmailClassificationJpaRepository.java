@@ -38,4 +38,11 @@ interface EmailClassificationJpaRepository extends JpaRepository<EmailClassifica
     @Query("update EmailClassificationEntity e set e.sheetSyncedAt = :syncedAt "
             + "where e.gmailMessageId in :gmailMessageIds")
     int markSynced(Collection<String> gmailMessageIds, Instant syncedAt);
+
+    List<EmailClassificationEntity> findByDigestSentAtIsNullOrderByReceivedAtAsc();
+
+    @Modifying
+    @Query("update EmailClassificationEntity e set e.digestSentAt = :sentAt "
+            + "where e.gmailMessageId in :gmailMessageIds")
+    int markDigestSent(Collection<String> gmailMessageIds, Instant sentAt);
 }
