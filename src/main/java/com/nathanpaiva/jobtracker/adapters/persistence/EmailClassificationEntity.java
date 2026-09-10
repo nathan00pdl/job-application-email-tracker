@@ -27,9 +27,10 @@ import jakarta.persistence.Table;
  * outside this package can hold a reference to it. The only way in is
  * {@code PersistencePort}.
  *
- * <p>It carries three columns the domain record does not: {@code id} and
- * {@code created_at} belong to the database, and {@code sheet_synced_at} is set by the
- * spreadsheet sync.
+ * <p>It carries four columns the domain record does not: {@code id} and
+ * {@code created_at} belong to the database, {@code sheet_synced_at} is set by the
+ * spreadsheet sync, and {@code digest_sent_at} by the digest delivery. All four are
+ * bookkeeping about the row, not part of what a classification is.
  */
 @Entity
 @Table(name = "email_classifications")
@@ -75,6 +76,9 @@ class EmailClassificationEntity {
 
     @Column(name = "sheet_synced_at")
     private Instant sheetSyncedAt;
+
+    @Column(name = "digest_sent_at")
+    private Instant digestSentAt;
 
     /** Set by the database default, never by this code, hence not insertable. */
     @Column(name = "created_at", insertable = false, updatable = false)

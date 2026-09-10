@@ -1,0 +1,11 @@
+-- When this row was delivered in a daily digest. Null means it has not been.
+--
+-- The same shape as sheet_synced_at, for the same reason: the digest is a queue, not a
+-- window over the last day. If a send fails, the rows it covered stay null and the next
+-- digest picks them up, instead of a day of news disappearing because one delivery
+-- failed. WhatsApp is where these are actually read, so an undelivered digest loses
+-- information rather than just a notice.
+--
+-- A timestamp rather than a boolean because they cost the same and it answers one more
+-- question: not only whether a row was delivered, but when.
+ALTER TABLE email_classifications ADD COLUMN digest_sent_at TIMESTAMPTZ;

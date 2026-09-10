@@ -61,4 +61,21 @@ class PostgresRepositoryAdapter implements PersistencePort {
         }
         repository.markSynced(gmailMessageIds, syncedAt);
     }
+
+    @Override
+    public List<EmailClassification> findNotSentInDigest() {
+        return repository.findByDigestSentAtIsNullOrderByReceivedAtAsc().stream()
+                .map(EmailClassificationEntity::toDomain)
+                .toList();
+    }
+
+    /** Writes, so it needs a transaction — see {@link #markSyncedToSpreadsheet}. */
+    @Override
+    @Transactional
+    public void markSentInDigest(Collection<String> gmailMessageIds, Instant sentAt) {
+        if (gmailMessageIds.isEmpty()) {
+            return;
+        }
+        repository.markDigestSent(gmailMessageIds, sentAt);
+    }
 }

@@ -214,6 +214,7 @@ class RunDailyScanUseCaseTest {
         private final List<EmailClassification> saved = new ArrayList<>();
         private final List<String> knownIds = new ArrayList<>();
         private final List<String> syncedIds = new ArrayList<>();
+        private final List<String> digestedIds = new ArrayList<>();
 
         void alreadyHas(String gmailMessageId) {
             knownIds.add(gmailMessageId);
@@ -240,6 +241,18 @@ class RunDailyScanUseCaseTest {
         @Override
         public void markSyncedToSpreadsheet(Collection<String> gmailMessageIds, Instant syncedAt) {
             syncedIds.addAll(gmailMessageIds);
+        }
+
+        @Override
+        public List<EmailClassification> findNotSentInDigest() {
+            return saved.stream()
+                    .filter(classification -> !digestedIds.contains(classification.gmailMessageId()))
+                    .toList();
+        }
+
+        @Override
+        public void markSentInDigest(Collection<String> gmailMessageIds, Instant sentAt) {
+            digestedIds.addAll(gmailMessageIds);
         }
     }
 }
