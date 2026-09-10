@@ -10,6 +10,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import com.nathanpaiva.jobtracker.domain.DailyDigest;
 import com.nathanpaiva.jobtracker.domain.EmailClassification;
 import com.nathanpaiva.jobtracker.domain.EmailClassifier;
 import com.nathanpaiva.jobtracker.domain.IncomingEmail;
@@ -167,9 +168,73 @@ class RunDailyScanUseCaseTest {
         assertThat(sheet.rows).isEmpty();
     }
 
+    @Test
+    void summarisesWhatIsWaitingToBeReported() {
+        mailbox.contains(
+                email("m1", "greenhouse.io", "Recebemos sua candidatura"),
+                email("m2", "gupy.io", "Infelizmente não seguiremos com sua candidatura"));
+
+        useCase.run();
+
+        DailyDigest digest = useCase.summariseTheDay();
+
+        assertThat(digest.total()).isEqualTo(2);
+        assertThat(digest.countOf(UpdateType.APPLICATION_RECEIVED)).isEqualTo(1);
+        assertThat(digest.countOf(UpdateType.REJECTION)).isEqualTo(1);
+        assertThat(digest.platforms()).containsExactly("Greenhouse", "Gupy");
+    }
+
+    /**
+     * The point of this whole step. Marking means "this was delivered", and a log line
+     * is not a delivery — so the queue has to survive the run untouched, or these rows
+     * would never reach a real message once there is something that sends them.
+     */
+    @Test
+    void leavesTheDigestQueueUntouched() {
+        mailbox.contains(email("m1", "greenhouse.io", "Recebemos sua candidatura"));
+
+        useCase.run();
+        useCase.run();
+
+        assertThat(database.digestQueue())
+                .extracting(EmailClassification::gmailMessageId)
+                .containsExactly("m1");
+    }
+
+    /** A day with no news still produces a digest, and it says so. */
+    @Test
+    void summarisesAnEmptyDayAsAnEmptyDigest() {
+        useCase.run();
+
+        assertThat(useCase.summariseTheDay().isEmpty()).isTrue();
+    }
+
+    /**
+     * The digest reports the period it found rather than one it was given — which is why
+     * a delivery that fails costs a delay instead of a day of news.
+     */
+    @Test
+    void readsThePeriodFromTheQueueRatherThanFromTheClock() {
+        mailbox.contains(
+                emailAt("m1", "greenhouse.io", "Recebemos sua candidatura", NOW.minus(Duration.ofHours(20))),
+                emailAt("m2", "gupy.io", "Infelizmente não seguiremos", NOW.minus(Duration.ofHours(2))));
+
+        useCase.run();
+        DailyDigest digest = useCase.summariseTheDay();
+
+        assertThat(digest.earliest()).isEqualTo(NOW.minus(Duration.ofHours(20)));
+        assertThat(digest.latest()).isEqualTo(NOW.minus(Duration.ofHours(2)));
+    }
+
     private static IncomingEmail email(String id, String senderDomain, String subject) {
         return new IncomingEmail(id, NOW.minus(Duration.ofHours(2)), senderDomain,
                 subject, "corpo do email");
+    }
+
+    /** Same, but with the arrival time spelled out, for the tests about the period. */
+    private static IncomingEmail emailAt(String id, String senderDomain, String subject,
+                                         Instant receivedAt) {
+        return new IncomingEmail(id, receivedAt, senderDomain, subject, "corpo do email");
     }
 
     /** A mailbox that is a list, and remembers what it was asked for. */
@@ -215,6 +280,10 @@ class RunDailyScanUseCaseTest {
         private final List<String> knownIds = new ArrayList<>();
         private final List<String> syncedIds = new ArrayList<>();
         private final List<String> digestedIds = new ArrayList<>();
+
+        List<EmailClassification> digestQueue() {
+            return findNotSentInDigest();
+        }
 
         void alreadyHas(String gmailMessageId) {
             knownIds.add(gmailMessageId);
