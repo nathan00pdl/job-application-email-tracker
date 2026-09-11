@@ -140,6 +140,39 @@ class GmailApiAdapterTest {
                 .hasMessageContaining("could not read the mailbox");
     }
 
+    /**
+     * The failure that ended a run in the field: asked for a few hundred emails in a
+     * row, Gmail answers {@code 403 rateLimitExceeded}. It is not a broken mailbox, it
+     * is Google asking to be given a moment, and the run should wait rather than die.
+     */
+    @Test
+    void waitsAndTriesAgainWhenGoogleThrottles() {
+        List<Integer> statuses = new ArrayList<>(List.of(403, 200));
+        GmailApiAdapter adapter = adapterAnswering(statuses,
+                "{\"error\": {\"code\": 403, \"message\": \"Quota exceeded\","
+                        + " \"errors\": [{\"reason\": \"rateLimitExceeded\"}]}}",
+                "{\"messages\": []}");
+
+        assertThat(adapter.fetchReceivedAfter(SINCE)).isEmpty();
+        assertThat(statuses).isEmpty();
+    }
+
+    /**
+     * A wrong request is not a busy server. Retrying it would only turn an immediate,
+     * clear failure into a slow one.
+     */
+    @Test
+    void doesNotWaitOutAFailureThatWillNeverSucceed() {
+        List<Integer> statuses = new ArrayList<>(List.of(404, 200));
+        GmailApiAdapter adapter = adapterAnswering(statuses,
+                "{\"error\": {\"code\": 404, \"message\": \"Not Found\"}}",
+                "{\"messages\": []}");
+
+        assertThatThrownBy(() -> adapter.fetchReceivedAfter(SINCE))
+                .isInstanceOf(UncheckedIOException.class);
+        assertThat(statuses).hasSize(1);
+    }
+
     // --- the stub ---
 
     /**
@@ -189,7 +222,37 @@ class GmailApiAdapterTest {
             }
         };
 
-        Gmail gmail = new Gmail.Builder(transport, GsonFactory.getDefaultInstance(), null)
+        Gmail gmail = new Gmail.Builder(transport, GsonFactory.getDefaultInstance(),
+                GmailClientConfiguration.retrying(null))
+                .setApplicationName("test")
+                .build();
+        return new GmailApiAdapter(gmail);
+    }
+
+    /**
+     * A transport that answers with the given status codes in order, taking one off the
+     * list per call — so what is left afterwards says how many calls were actually made.
+     */
+    private GmailApiAdapter adapterAnswering(List<Integer> statuses,
+                                             String failureBody, String successBody) {
+        MockHttpTransport transport = new MockHttpTransport() {
+            @Override
+            public LowLevelHttpRequest buildRequest(String method, String url) {
+                return new MockLowLevelHttpRequest() {
+                    @Override
+                    public LowLevelHttpResponse execute() {
+                        int status = statuses.remove(0);
+                        return new MockLowLevelHttpResponse()
+                                .setStatusCode(status)
+                                .setContentType("application/json")
+                                .setContent(status == 200 ? successBody : failureBody);
+                    }
+                };
+            }
+        };
+
+        Gmail gmail = new Gmail.Builder(transport, GsonFactory.getDefaultInstance(),
+                GmailClientConfiguration.retrying(null))
                 .setApplicationName("test")
                 .build();
         return new GmailApiAdapter(gmail);
