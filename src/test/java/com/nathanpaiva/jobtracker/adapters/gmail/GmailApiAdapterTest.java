@@ -1,6 +1,7 @@
 package com.nathanpaiva.jobtracker.adapters.gmail;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -26,6 +27,7 @@ import com.google.api.services.gmail.model.MessagePartHeader;
 import com.nathanpaiva.jobtracker.domain.IncomingEmail;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Tests for the adapter, with Google replaced by a stub transport.
@@ -109,6 +111,35 @@ class GmailApiAdapterTest {
         assertThat(adapter.fetchReceivedAfter(SINCE)).isEmpty();
     }
 
+    /**
+     * The failure this project meets every seven days, while the OAuth app is in
+     * Testing. Before this, it arrived as "could not read the mailbox" — the same
+     * sentence as a dropped network — with the real reason three levels down.
+     */
+    @Test
+    void saysTheRefreshTokenExpiredInsteadOfBlamingTheMailbox() {
+        GmailApiAdapter adapter = adapterRefusing("{\"error\": \"invalid_grant\"}");
+
+        assertThatThrownBy(() -> adapter.fetchReceivedAfter(SINCE))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("invalid_grant")
+                .hasMessageContaining("GMAIL_REFRESH_TOKEN");
+    }
+
+    /**
+     * Same status code, different reason. This is what keeps the new message honest: it
+     * has to key on what Google said, not on the fact that something went wrong — or
+     * every outage would start telling you to generate a token.
+     */
+    @Test
+    void stillBlamesTheMailboxForAnyOtherRefusal() {
+        GmailApiAdapter adapter = adapterRefusing("{\"error\": \"invalid_request\"}");
+
+        assertThatThrownBy(() -> adapter.fetchReceivedAfter(SINCE))
+                .isInstanceOf(UncheckedIOException.class)
+                .hasMessageContaining("could not read the mailbox");
+    }
+
     // --- the stub ---
 
     /**
@@ -128,6 +159,29 @@ class GmailApiAdapterTest {
                     public LowLevelHttpResponse execute() {
                         return new MockLowLevelHttpResponse()
                                 .setStatusCode(200)
+                                .setContentType("application/json")
+                                .setContent(body);
+                    }
+                };
+            }
+        };
+
+        Gmail gmail = new Gmail.Builder(transport, GsonFactory.getDefaultInstance(), null)
+                .setApplicationName("test")
+                .build();
+        return new GmailApiAdapter(gmail);
+    }
+
+    /** A transport that answers every call with a 400 carrying the given body. */
+    private GmailApiAdapter adapterRefusing(String body) {
+        MockHttpTransport transport = new MockHttpTransport() {
+            @Override
+            public LowLevelHttpRequest buildRequest(String method, String url) {
+                return new MockLowLevelHttpRequest() {
+                    @Override
+                    public LowLevelHttpResponse execute() {
+                        return new MockLowLevelHttpResponse()
+                                .setStatusCode(400)
                                 .setContentType("application/json")
                                 .setContent(body);
                     }
