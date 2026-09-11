@@ -46,8 +46,9 @@ public final class EmailClassifier {
             Map.entry("smartrecruiters.com", "SmartRecruiters"),
             Map.entry("successfactors.com", "SuccessFactors"),
             Map.entry("workday.com", "Workday"), Map.entry("myworkdayjobs.com", "Workday"),
-            Map.entry("gupy.io", "Gupy"), Map.entry("kenoby.com", "Kenoby"),
-            Map.entry("solides.com", "Sólides"));
+            Map.entry("gupy.io", "Gupy"), Map.entry("gupy.com.br", "Gupy"),
+            Map.entry("kenoby.com", "Kenoby"), Map.entry("solides.com", "Sólides"),
+            Map.entry("inhire.app", "inHire"));
 
     /**
      * Job boards: sites where openings are advertised.
@@ -58,6 +59,21 @@ public final class EmailClassifier {
      * which is exactly how a LinkedIn message about post impressions was once stored as
      * a job application.
      */
+    /**
+     * Addresses that belong to a system this project trusts, but carry its marketing
+     * rather than news about an application.
+     *
+     * <p>They have to be named because domains are matched by suffix: {@code gupy.com.br}
+     * in the map above also matches {@code inbound.gupy.com.br}, and that is where Gupy
+     * sends the mail it writes to everybody. A separate sending subdomain for marketing
+     * is a common convention, and it is the only signal separating the two here.
+     *
+     * <p>Being listed stops the address from <em>proving</em> anything. It is not a veto:
+     * a message from one of these that carries real evidence is still kept, and the
+     * platform is still recorded, because where an email came from is a fact either way.
+     */
+    private static final Set<String> MARKETING_ADDRESSES = Set.of("inbound.gupy.com.br");
+
     private static final Map<String, String> JOB_BOARD_BY_DOMAIN = Map.ofEntries(
             Map.entry("linkedin.com", "LinkedIn"), Map.entry("indeed.com", "Indeed"),
             Map.entry("glassdoor.com", "Glassdoor"), Map.entry("vagas.com.br", "Vagas.com"),
@@ -105,7 +121,8 @@ public final class EmailClassifier {
             "vagas abertas", "confira as vagas", "conheca as vagas",
             "veja as vagas", "oportunidades abertas", "estamos contratando",
             "apply now", "we are hiring", "we're hiring", "job alert",
-            "jobs for you", "this job is a match", "recommended for you");
+            "jobs for you", "this job is a match", "recommended for you",
+            "interesse em seu perfil", "interesse no seu perfil");
 
     /**
      * Read in this order, first match wins, and the order carries meaning. A rejection
@@ -149,8 +166,10 @@ public final class EmailClassifier {
         if (ADVERT_PHRASES.stream().anyMatch(text::contains)) {
             return false;
         }
-        return nameFrom(ATS_BY_DOMAIN, senderDomain) != null
-                || APPLICATION_EVIDENCE.stream().anyMatch(text::contains);
+        boolean provenByTheSender = nameFrom(ATS_BY_DOMAIN, senderDomain) != null
+                && !MARKETING_ADDRESSES.contains(normalize(senderDomain));
+
+        return provenByTheSender || APPLICATION_EVIDENCE.stream().anyMatch(text::contains);
     }
 
     private static UpdateType updateTypeOf(String text) {

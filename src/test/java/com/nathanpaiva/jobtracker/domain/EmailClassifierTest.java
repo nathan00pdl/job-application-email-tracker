@@ -198,6 +198,64 @@ class EmailClassifierTest {
                 .extracting(EmailClassification::urgent).isEqualTo(false);
     }
 
+    /**
+     * Real subjects from a ninety-day read of the mailbox, every one of them missed
+     * before these domains were known.
+     *
+     * <p>Gupy writes from {@code gupy.com.br}, not from the {@code gupy.io} the map had.
+     * None of these subjects carries a phrase the evidence list recognises — "retorno do
+     * processo seletivo" and "obrigada pelo interesse" are not in it — so with the wrong
+     * domain there was nothing left to catch them by.
+     */
+    @Test
+    void recognisesTheDomainsTheseSystemsActuallyWriteFrom() {
+        assertThat(classify("gupy.com.br", "CAPPTA | Retorno do processo seletivo",
+                "Agradecemos sua participação.")).get()
+                .extracting(EmailClassification::platform).isEqualTo("Gupy");
+
+        assertThat(classify("reply.gupy.com.br", "Atualização Processo Seletivo",
+                "Houve uma atualização.")).get()
+                .extracting(EmailClassification::platform).isEqualTo("Gupy");
+
+        assertThat(classify("ses-mail.inhire.app", "Devolutiva - Desenvolvedor Back-end Java Jr",
+                "Seguimos com outros perfis.")).get()
+                .extracting(EmailClassification::platform).isEqualTo("inHire");
+
+        assertThat(classify("gupy.com.br",
+                "Embrasil - Obrigada pelo interesse em fazer parte do nosso time!",
+                "Recebemos seu cadastro.")).isPresent();
+    }
+
+    /**
+     * Knowing the domain must not hand the advert veto a free pass. Both of these were
+     * kept when the domains were first added, with the bodies the senders actually use —
+     * neither carries a phrase the old advert list recognised.
+     */
+    @Test
+    void stillIgnoresTheMarketingThoseSameSystemsSend() {
+        assertThat(classify("gupy.com.br",
+                "Programas de Talentos tem interesse em seu perfil para a vaga Trainee 2027",
+                "Conheça o programa e participe."))
+                .isEmpty();
+
+        assertThat(classify("inbound.gupy.com.br", "Convite | Batalha de Agentes",
+                "Um evento para desenvolvedores. Garanta seu lugar."))
+                .isEmpty();
+    }
+
+    /**
+     * A sending subdomain used for marketing stops the address proving anything, but it
+     * is not a veto: a real message from there is still kept on its own evidence, and the
+     * platform is still recorded, because where an email came from is a fact either way.
+     */
+    @Test
+    void keepsRealNewsEvenFromAMarketingAddress() {
+        assertThat(classify("inbound.gupy.com.br", "Recebemos sua candidatura",
+                "Em breve retornamos.")).get()
+                .extracting(EmailClassification::platform)
+                .isEqualTo("Gupy");
+    }
+
     private Optional<EmailClassification> classify(String senderDomain, String subject) {
         return classify(senderDomain, subject, "corpo");
     }
