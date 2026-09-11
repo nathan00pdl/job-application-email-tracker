@@ -100,6 +100,8 @@ public final class EmailClassifier {
             "candidatura recebida", "candidatura registrada",
             "obrigado por se candidatar", "agradecemos sua candidatura",
             "agradecemos seu interesse na vaga",
+            "retorno do processo seletivo", "retorno do seu processo seletivo",
+            "inscricao via",
             "we received your application", "thank you for applying",
             "your application for", "your application has", "you applied",
             "regarding your application", "application status");

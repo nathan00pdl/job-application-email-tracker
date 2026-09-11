@@ -244,6 +244,34 @@ class EmailClassifierTest {
     }
 
     /**
+     * Two real subjects that no domain can reach: one from the company itself, one from
+     * a job board. A job board proves nothing by design — it writes to everybody — so
+     * both depend entirely on the words.
+     */
+    @Test
+    void recognisesAnApplicationFromWordsAloneWhenTheSenderProvesNothing() {
+        assertThat(classify("btgpactual.com",
+                "BTG Pactual | Retorno do Processo Seletivo da Vaga Desenvolvedor(a) Backend",
+                "Agradecemos sua participação.")).isPresent();
+
+        assertThat(classify("indeed.com", "Inscrição via Indeed: Junior Backend Engineer - Java",
+                "Sua candidatura foi enviada.")).get()
+                .extracting(EmailClassification::platform)
+                .isEqualTo("Indeed");
+    }
+
+    /**
+     * The new phrases must not undo the veto. An advert announcing that a selection
+     * process is open is still an advert, whatever words surround it.
+     */
+    @Test
+    void doesNotLetTheNewPhrasesReopenTheDoorToAdverts() {
+        assertThat(classify("matchbox.digital",
+                "Inscrições abertas para o Trainee 2027 - retorno do processo seletivo em outubro",
+                "Inscreva-se até 30/09.")).isEmpty();
+    }
+
+    /**
      * A sending subdomain used for marketing stops the address proving anything, but it
      * is not a veto: a real message from there is still kept on its own evidence, and the
      * platform is still recorded, because where an email came from is a fact either way.
