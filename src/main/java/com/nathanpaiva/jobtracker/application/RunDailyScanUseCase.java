@@ -8,6 +8,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.nathanpaiva.jobtracker.domain.DailyDigest;
 import com.nathanpaiva.jobtracker.domain.EmailClassification;
 import com.nathanpaiva.jobtracker.domain.EmailClassifier;
 import com.nathanpaiva.jobtracker.domain.IncomingEmail;
@@ -68,6 +69,7 @@ public class RunDailyScanUseCase {
     public void run() {
         readAndStoreNewEmails();
         mirrorToSpreadsheet();
+        summariseTheDay();
     }
 
     private void readAndStoreNewEmails() {
@@ -123,5 +125,40 @@ public class RunDailyScanUseCase {
                 clock.instant());
 
         log.info("mirrored {} classifications to the spreadsheet", waiting.size());
+    }
+
+    /**
+     * Adds up everything still waiting to be delivered in a digest, and writes it to the
+     * log.
+     *
+     * <p><b>Nothing is marked here.</b> Marking means "this was delivered", and today
+     * there is nowhere to deliver to — the digest only reaches the log. Marking on a log
+     * line would empty the queue while nothing had been sent, and those classifications
+     * would never appear in a real message once one exists. The call to
+     * {@code markSentInDigest} belongs with whatever does the sending.
+     *
+     * <p>Until then the log shows the queue growing, which is the queue working.
+     *
+     * <p>Note what is not passed in: no window, and no instant. The digest covers what
+     * the database says is undelivered, whether that is one day or three, and reports
+     * the period it found. That is the difference between a queue and a window, and it
+     * is why a delivery that fails costs a delay rather than a day of news.
+     *
+     * <p>Package-private rather than private so the test can read what was built. The
+     * alternative was asserting on log output, which breaks the moment someone rewords a
+     * message.
+     */
+    DailyDigest summariseTheDay() {
+        DailyDigest digest = DailyDigest.of(persistence.findNotSentInDigest());
+
+        if (digest.isEmpty()) {
+            log.info("digest: nothing waiting to be reported");
+            return digest;
+        }
+
+        log.info("digest: {} classifications from {} to {}, {} urgent, by type {}, platforms {}",
+                digest.total(), digest.earliest(), digest.latest(), digest.urgent(),
+                digest.countsByType(), digest.platforms());
+        return digest;
     }
 }
