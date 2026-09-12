@@ -284,6 +284,54 @@ class EmailClassifierTest {
                 .isEqualTo("Gupy");
     }
 
+    /**
+     * The first footer is the one two real marketing emails ended with, word for word
+     * apart from the company. "You applied" is evidence, but here it only explains why
+     * the email was sent — and a company adds that to everything it sends to people who
+     * once applied.
+     */
+    @Test
+    void ignoresAFooterThatOnlySaysWhyTheEmailWasSent() {
+        assertThat(classify("acme.com", "What do people say about Acme? 👀",
+                "Read the reviews. You have received this email, because you applied for "
+                        + "a job on Acme website."))
+                .isEmpty();
+
+        assertThat(classify("acme.com", "Life at Acme",
+                "See what we have been up to. You are receiving this email because you "
+                        + "applied to a position at Acme."))
+                .isEmpty();
+    }
+
+    /**
+     * Taking the footer out must not take the email with it: when the body reports on the
+     * application, that is still evidence, whatever the footer says.
+     */
+    @Test
+    void keepsRealNewsThatCarriesTheSameFooter() {
+        assertThat(classify("acme.com", "Your application",
+                "We received your application for the Backend role. You have received this "
+                        + "email, because you applied for a job on Acme website."))
+                .get()
+                .extracting(EmailClassification::updateType)
+                .isEqualTo(UpdateType.APPLICATION_RECEIVED);
+    }
+
+    /**
+     * Only the footer's own wording is taken out. A recruiter who writes "because you
+     * applied" in the message itself is reporting on the application, and must still be
+     * heard.
+     */
+    @Test
+    void stillHearsARecruiterWritingBecauseYouApplied() {
+        assertThat(classify("acme.com", "Java Developer role",
+                "Hi, I am reaching out because you applied for our Java Developer role. "
+                        + "Could we schedule a call this week?"))
+                .get()
+                .extracting(EmailClassification::updateType)
+                .isEqualTo(UpdateType.INTERVIEW_INVITE);
+    }
+
     private Optional<EmailClassification> classify(String senderDomain, String subject) {
         return classify(senderDomain, subject, "corpo");
     }

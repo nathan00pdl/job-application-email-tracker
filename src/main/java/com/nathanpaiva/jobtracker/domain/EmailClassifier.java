@@ -127,6 +127,29 @@ public final class EmailClassifier {
             "interesse em seu perfil", "interesse no seu perfil");
 
     /**
+     * Sentences explaining why an email was sent. They are taken out of the text before
+     * evidence is looked for.
+     *
+     * <p>A company adds one of these to everything it sends to people who once applied,
+     * news or not, so it contains evidence words without being evidence. "You have
+     * received this email, because you applied for a job on our website" sat at the
+     * bottom of two marketing emails, and its "you applied" was the only reason both were
+     * stored as job applications.
+     *
+     * <p>Only the footer's own wording is listed, not "because you applied" on its own: a
+     * recruiter writing "I am reaching out because you applied for our role" is reporting
+     * on the application, and must still count. The variant with a comma is there because
+     * the real footer has one.
+     *
+     * <p>Like {@link #MARKETING_ADDRESSES}, this takes away the power to prove, not the
+     * right to be kept: an email that carries the footer and real evidence elsewhere is
+     * still kept.
+     */
+    private static final Set<String> FOOTER_PHRASES = Set.of(
+            "this email because you applied", "this email, because you applied",
+            "this message because you applied");
+
+    /**
      * Read in this order, first match wins, and the order carries meaning. A rejection
      * almost always names the interview it is rejecting you after, and an offer often
      * names both. Reading them in order of finality keeps the specific outcomes from
@@ -163,6 +186,7 @@ public final class EmailClassifier {
      * An advert is never about an application, whatever else it says. Otherwise, an
      * email counts when it carries evidence of an application, or when it comes from an
      * applicant tracking system — those only write to people already in a process.
+     * Evidence is looked for with the footer taken out.
      */
     private static boolean isAboutAnApplication(String text, String senderDomain) {
         if (ADVERT_PHRASES.stream().anyMatch(text::contains)) {
@@ -171,7 +195,17 @@ public final class EmailClassifier {
         boolean provenByTheSender = nameFrom(ATS_BY_DOMAIN, senderDomain) != null
                 && !MARKETING_ADDRESSES.contains(normalize(senderDomain));
 
-        return provenByTheSender || APPLICATION_EVIDENCE.stream().anyMatch(text::contains);
+        String withoutFooter = withoutFooter(text);
+        return provenByTheSender
+                || APPLICATION_EVIDENCE.stream().anyMatch(withoutFooter::contains);
+    }
+
+    private static String withoutFooter(String text) {
+        String result = text;
+        for (String phrase : FOOTER_PHRASES) {
+            result = result.replace(phrase, " ");
+        }
+        return result;
     }
 
     private static UpdateType updateTypeOf(String text) {
