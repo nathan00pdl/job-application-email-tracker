@@ -117,9 +117,23 @@ configuration from these repository secrets:
 The local `.env` keeps pointing at the local container, so a run started by hand never
 writes to the real database.
 
+**When a run fails**, a second job opens an issue labelled `daily-run-failure` and mentions
+you in it, so GitHub notifies you. The title names the cause when the run can tell it, and
+the body links to the run. While that issue is open, later failures become comments on it
+rather than new issues. It carries no text from the log, because on a public repository
+issues are public too.
+
+To check that the alert reaches you, make a run fail on purpose. It stops before touching
+the mailbox or the database:
+
+```bash
+gh workflow run daily-run.yml -f fail_on_purpose=true
+```
+
 **Renewing the Gmail token.** While the OAuth app is in Testing, Google expires the refresh
-token every seven days, and the run fails with a message naming `GMAIL_REFRESH_TOKEN`.
-Generate a new one, update that secret, and start the workflow by hand to confirm:
+token every seven days, and the run fails with an issue titled *the Gmail token expired*.
+Generate a new token, update the `GMAIL_REFRESH_TOKEN` secret, and start the workflow by
+hand to confirm:
 
 ```bash
 gh workflow run daily-run.yml
