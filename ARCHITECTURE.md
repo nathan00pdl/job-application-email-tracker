@@ -147,7 +147,7 @@ A separate, distinct template is used for the job-failure alert described in the
 - **Container hardening:** the Postgres dev container uses an official minimal image; if the application is ever containerized, it would run as a non-root user from a minimal JRE base image, with a `.dockerignore` excluding any credential files.
 - **CI hardening:** every GitHub Action the workflows use is pinned to a full commit SHA, with its version in a comment beside it — a tag can be moved to point at other code, a commit cannot; workflow `permissions` are scoped explicitly (`contents: read` by default) rather than left at the broad default.
 - **Transport security:** Neon refuses connections without TLS, and the connection string asks for it as well (`sslmode=require`), so the credentials and the data travel encrypted between the runner and the database.
-- **Logging:** logs record metadata only (e.g. "processed email from domain X, classified as Y, id Z") — never full email bodies, tokens, or credentials.
+- **Logging:** logs record counts and times only — how many emails were read, stored and skipped, and the digest's totals by kind and platform — never a subject, a body, a sender, a token, or a credential. The one exception is the id of a message that could not be read, which means nothing without access to the mailbox. This goes beyond good practice: the repository is public, so anyone can read the log of every daily run. GitHub also hides the value of every secret wherever it appears in a log, which is why Flyway's line about the database shows `***` instead of the URL.
 
 ## Testing strategy
 
