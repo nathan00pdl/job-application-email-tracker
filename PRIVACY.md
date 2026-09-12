@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Last updated: 2026-09-08
+Last updated: 2026-09-12
 
 **job-application-email-tracker** ("the app") is a personal, open-source project built
 and run by one person, for that person's own mailbox. It has no other users, no company
@@ -13,14 +13,16 @@ With your permission, the app reads messages from your own Gmail mailbox using t
 **cannot** send, delete, or change anything in your mailbox, and it does not request any
 other Google permission.
 
-Each run looks only at messages received in the last 26 hours. The window is slightly
-wider than a day so that a late or failed run does not skip messages.
+Each run looks only at messages received since the previous run finished reading, with an
+hour of overlap. After a gap — a run that failed, or a day the app did not run — the next
+run reads the whole gap, so that no message is skipped. The very first run looks back 26
+hours.
 
 ## What it does with them
 
-1. The app reads the subject and body **on the author's own machine**, and matches them
-   against a list of phrases. (A scheduled run on a GitHub Actions runner is planned; it
-   does not exist yet.) Nothing is sent
+1. The app reads the subject and body and matches them against a list of phrases. That
+   happens once a day on a GitHub Actions runner — a temporary machine that is destroyed
+   when the run ends — or on the author's own machine when run by hand. Nothing is sent
    to any third party for analysis: there is no external classifier and no AI service
    involved.
 2. Emails that are not about a job application are ignored, and **nothing about them is
@@ -31,16 +33,16 @@ wider than a day so that a late or failed run does not skip messages.
 
 ## Where the data is stored
 
-- A private PostgreSQL database hosted on Neon, reachable only with credentials held by
-  the author.
+- A private PostgreSQL database hosted on Neon, in its São Paulo region, reachable only
+  with credentials held by the author.
 - A private Google Sheet owned by the same Google account, used as a dashboard.
 
 A daily summary sent to the author's own number over WhatsApp is planned and is not built
 yet. No message is sent anywhere today.
 
-Access credentials live in a local `.env` file on the author's machine, which is excluded
-from version control and never committed. When the scheduled run exists, they will be held
-as GitHub Actions secrets instead.
+Access credentials are held as GitHub Actions secrets for the scheduled run, and in a local
+`.env` file on the author's machine for runs started by hand. Neither is ever committed to
+version control.
 
 ## What the app does not do
 

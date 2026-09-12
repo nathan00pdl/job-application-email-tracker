@@ -14,7 +14,7 @@ This is a personal study project built to demonstrate backend engineering practi
 - **Schema migrations:** Flyway
 - **Containerization:** Docker Compose, used for the local PostgreSQL instance only (the application itself runs directly via Maven/JVM locally, and inside the GitHub Actions runner in production — containerizing the app adds no benefit in either environment)
 - **Build tool:** pinned with the Maven wrapper (`./mvnw`), so every machine and CI use the same version
-- **Scheduling / execution:** GitHub Actions (`schedule` cron trigger), no always-on server _(planned; today a run is started by hand)_
+- **Scheduling / execution:** GitHub Actions (`schedule` cron trigger, daily at 06:00 São Paulo time), no always-on server
 - **External integrations:** Gmail API, Google Sheets API, and Meta WhatsApp Cloud API _(planned)_
 
 ## Language convention
@@ -44,19 +44,20 @@ Swapping an integration (e.g. WhatsApp provider, database host) means writing a 
 
 ## Daily pipeline
 
-Steps marked _(not built yet)_ describe the intended design. Today a run is started by hand
-with `./mvnw spring-boot:run`; steps 3 to 7 are what already works.
+Steps marked _(not built yet)_ describe the intended design; the rest runs every day. A run
+can also be started by hand, locally with `./mvnw spring-boot:run` or on GitHub from the
+Actions tab.
 
-1. GitHub Actions triggers `daily-run.yml` on a daily cron schedule; a fresh Ubuntu runner is provisioned. _(not built yet)_
-2. Secrets are injected as environment variables from GitHub Secrets. _(not built yet — locally they come from `.env`)_
-3. `GmailApiAdapter` fetches emails received in the last 26h (`gmail.readonly` scope only). The window is wider than a day on purpose: if a run is late or fails, an exact 24h window would leave emails behind. Re-reading costs nothing, because step 4 discards what was already seen.
+1. GitHub Actions triggers `daily-run.yml` on a daily cron schedule; a fresh Ubuntu runner is provisioned.
+2. Secrets are injected as environment variables from GitHub Secrets — locally they come from `.env`.
+3. `GmailApiAdapter` fetches emails received since the last scan finished reading, with an hour of overlap (`gmail.readonly` scope only). The starting point comes from the `scan_runs` table rather than a fixed window, so a gap of any length — a missed run, an expired token — closes itself on the next run. A database that has never completed a scan starts 26 hours back. Re-reading costs nothing, because step 4 discards what was already seen.
 4. Each email is checked against `gmail_message_id` in the database — if it already exists, it is skipped (idempotency, see below).
 5. `EmailClassifier` reads each email. It answers with a classification, or with nothing when the email is not about a job application — and those are dropped without being recorded.
 6. Classifications are persisted in Postgres, the source of truth.
 7. New/unsynced records (`sheet_synced_at IS NULL`) are written to the Google Sheet.
 8. A WhatsApp message is sent with the daily summary — every day, even when there is nothing new. _(not built yet)_
-9. If any external service is unreachable and prevents completion (not a per-email classification failure), the job fails visibly: GitHub Actions' built-in failure email fires automatically, and a final step sends a separate WhatsApp alert using a distinct message template. _(not built yet)_
-10. The runner is destroyed. Nothing stays running between executions. _(not built yet — though a local run is already a process that starts, works and exits)_
+9. If any external service is unreachable and prevents completion (not a per-email classification failure), the job fails visibly: the run is marked as failed in the Actions tab and GitHub notifies about it. A final step that also sends a separate WhatsApp alert, using a distinct message template, is _(not built yet)_.
+10. The runner is destroyed. Nothing stays running between executions.
 
 Per-item failures (a single email failing classification) are caught and logged individually; they do not abort processing of the remaining emails in that run. Failures connecting to a whole service (e.g. Postgres unreachable) abort the run, since nothing can be persisted.
 
@@ -154,14 +155,14 @@ Three GitHub Actions workflows guard `main`, each triggered on `push`/`pull_requ
 - **`codeql.yml`** — compiles the project and runs CodeQL's data-flow analysis.
 - **`dependency-review.yml`** — inspects the dependencies a pull request adds.
 
-A fourth is planned and does not exist yet:
+A fourth runs the pipeline itself rather than checking the code:
 
-- **`daily-run.yml`** — a daily `schedule` cron running the pipeline against the real external services. _(not built yet)_
+- **`daily-run.yml`** — every day at 09:00 UTC (06:00 in São Paulo), and by hand from the Actions tab, against the real external services. The secrets are handed to the step that runs the scan and to nothing else, and a `concurrency` group keeps a manual run from overlapping the scheduled one.
 
 Keeping execution separate from validation is deliberate: it avoids mixing "is this code
 correct" with "did today's run work" in one workflow, and each keeps its own run history in
-the Actions tab. The three that exist are split from each other for a plainer reason —
-independent jobs run in parallel, and neither waits on the other.
+the Actions tab. The three validation workflows are split from each other for a plainer
+reason — independent jobs run in parallel, and neither waits on the other.
 
 ## License
 

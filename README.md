@@ -103,6 +103,30 @@ many were not about a job application.
 
 To start it without scanning, set `RUN_ON_STARTUP=false`.
 
+## The daily run
+
+`.github/workflows/daily-run.yml` runs the scan every day at 06:00 in São Paulo (09:00 UTC),
+against a PostgreSQL database hosted on Neon rather than the local container. It reads its
+configuration from these repository secrets:
+
+`DATASOURCE_URL` · `DATASOURCE_USERNAME` · `DATASOURCE_PASSWORD` ·
+`GMAIL_CLIENT_ID` · `GMAIL_CLIENT_SECRET` · `GMAIL_REFRESH_TOKEN` ·
+`GOOGLE_SHEETS_CREDENTIALS` · `GOOGLE_SHEETS_SPREADSHEET_ID`
+
+The local `.env` keeps pointing at the local container, so a run started by hand never
+writes to the real database.
+
+**Renewing the Gmail token.** While the OAuth app is in Testing, Google expires the refresh
+token every seven days, and the run fails with a message naming `GMAIL_REFRESH_TOKEN`.
+Generate a new one, update that secret, and start the workflow by hand to confirm:
+
+```bash
+gh workflow run daily-run.yml
+```
+
+Nothing is lost in the meantime: the next run reads from where the last one finished,
+however long ago that was.
+
 ## The spreadsheet
 
 Classifications are mirrored into a Google Sheet, which is where notes written by hand

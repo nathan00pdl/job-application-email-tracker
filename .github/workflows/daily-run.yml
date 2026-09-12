@@ -1,0 +1,67 @@
+name: Daily run
+
+# Runs the pipeline against the real services: reads the mailbox, stores what is about an
+# application in the Neon database, mirrors it to the spreadsheet and logs the digest.
+#
+# Kept apart from ci.yml on purpose. CI answers "is this code correct" on every push; this
+# answers "did today's run work" once a day, and each keeps its own history in the Actions
+# tab.
+
+on:
+  schedule:
+    # 09:00 UTC is 06:00 in São Paulo, so the day's news is in before the morning.
+    #
+    # GitHub runs scheduled workflows on a best-effort basis and delays them at busy hours,
+    # sometimes by a lot. That does not cost anything here: each run starts reading from
+    # where the last one finished, so a late run simply reads more.
+    - cron: "0 9 * * *"
+  # By hand, from the Actions tab or `gh workflow run daily-run.yml` — to check a renewed
+  # token the same day instead of waiting for tomorrow's schedule.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never two runs at once. A manual run started while the scheduled one is going would read
+# the same emails in parallel, and although the unique constraint keeps the database clean,
+# both could append the same rows to the spreadsheet. The second one waits.
+concurrency:
+  group: daily-run
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    # A normal run reads one day of mail. Reading ninety days, the worst backlog measured,
+    # took six minutes. Thirty is far beyond both, and stops a hung run from holding the
+    # concurrency slot for the six hours GitHub would otherwise allow.
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      # The secrets are handed to this step only, not to the whole job: checking out code
+      # and installing a JDK have no reason to see a database password.
+      #
+      # A failure is not caught anywhere. DailyScanRunner lets it end the process with a
+      # non-zero status, Maven turns that into a failed step, and the run shows up as failed
+      # — which is what makes a broken day visible instead of a quiet, empty one.
+      - name: Run the daily scan
+        run: ./mvnw -B spring-boot:run
+        env:
+          DATASOURCE_URL: ${{ secrets.DATASOURCE_URL }}
+          DATASOURCE_USERNAME: ${{ secrets.DATASOURCE_USERNAME }}
+          DATASOURCE_PASSWORD: ${{ secrets.DATASOURCE_PASSWORD }}
+          GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
+          GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
+          GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
+          GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
+          GOOGLE_SHEETS_SPREADSHEET_ID: ${{ secrets.GOOGLE_SHEETS_SPREADSHEET_ID }}
