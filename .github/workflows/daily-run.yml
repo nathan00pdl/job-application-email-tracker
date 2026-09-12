@@ -47,6 +47,21 @@ jobs:
       cause: ${{ steps.cause.outputs.cause }}
 
     steps:
+      # GitHub hides the value of each secret in the log, but only the value as a whole. A
+      # connection error prints the database's host on its own, which is not the whole
+      # value of any secret, so it would show in the log — and on a public repository the
+      # log is public. This registers the host as one more value to hide, for every step
+      # that follows. It comes first so that nothing can print the host before it.
+      - name: Hide the database host in the log
+        env:
+          DATASOURCE_URL: ${{ secrets.DATASOURCE_URL }}
+        run: |
+          host="${DATASOURCE_URL#*://}"
+          host="${host%%[/:?]*}"
+          if [ -n "$host" ]; then
+            echo "::add-mask::$host"
+          fi
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -63,8 +78,9 @@ jobs:
           echo "Failing on purpose, as asked, to check the failure alert."
           exit 1
 
-      # The secrets are handed to this step only, not to the whole job: checking out code
-      # and installing a JDK have no reason to see a database password.
+      # The secrets are handed to this step, not to the whole job: checking out code and
+      # installing a JDK have no reason to see a database password. The only other step
+      # that sees one is the first, which needs the database URL to hide its host.
       #
       # A failure is not caught anywhere. DailyScanRunner lets it end the process with a
       # non-zero status, Maven turns that into a failed step, and the run shows up as failed
