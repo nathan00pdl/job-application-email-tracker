@@ -18,6 +18,13 @@ on:
   # By hand, from the Actions tab or `gh workflow run daily-run.yml` — to check a renewed
   # token the same day instead of waiting for tomorrow's schedule.
   workflow_dispatch:
+    inputs:
+      # Makes the run fail before it touches anything, to check from end to end that a
+      # failure reaches you: `gh workflow run daily-run.yml -f fail_on_purpose=true`.
+      fail_on_purpose:
+        description: Fail on purpose, to check that the failure alert arrives
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -32,10 +39,12 @@ concurrency:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    # A normal run reads one day of mail. Reading ninety days, the worst backlog measured,
-    # took six minutes. Thirty is far beyond both, and stops a hung run from holding the
-    # concurrency slot for the six hours GitHub would otherwise allow.
+    # A backstop only. The scan step has a shorter limit of its own, because a step that
+    # runs out of time fails, and a failure is what the alert job reacts to. A job that runs
+    # out of time is cancelled instead, and would go by without an alert.
     timeout-minutes: 30
+    outputs:
+      cause: ${{ steps.cause.outputs.cause }}
 
     steps:
       - name: Checkout
@@ -48,14 +57,29 @@ jobs:
           java-version: "25"
           cache: maven
 
+      - name: Fail on purpose
+        if: inputs.fail_on_purpose
+        run: |
+          echo "Failing on purpose, as asked, to check the failure alert."
+          exit 1
+
       # The secrets are handed to this step only, not to the whole job: checking out code
       # and installing a JDK have no reason to see a database password.
       #
       # A failure is not caught anywhere. DailyScanRunner lets it end the process with a
       # non-zero status, Maven turns that into a failed step, and the run shows up as failed
       # — which is what makes a broken day visible instead of a quiet, empty one.
+      #
+      # The output is also copied to a file, so that the next step can tell why the run
+      # failed. `pipefail` keeps the failure: without it, the step would take the status of
+      # `tee`, which always succeeds.
       - name: Run the daily scan
-        run: ./mvnw -B spring-boot:run
+        # A normal run reads one day of mail. Reading ninety days, the worst backlog
+        # measured, took six minutes. Twenty is far beyond both.
+        timeout-minutes: 20
+        run: |
+          set -o pipefail
+          ./mvnw -B spring-boot:run 2>&1 | tee "$RUNNER_TEMP/scan.log"
         env:
           DATASOURCE_URL: ${{ secrets.DATASOURCE_URL }}
           DATASOURCE_USERNAME: ${{ secrets.DATASOURCE_USERNAME }}
@@ -65,3 +89,82 @@ jobs:
           GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
           GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
           GOOGLE_SHEETS_SPREADSHEET_ID: ${{ secrets.GOOGLE_SHEETS_SPREADSHEET_ID }}
+
+      # Turns the failure into one word for the alert job. Only that word leaves this job,
+      # never a line of the log — the alert job explains why.
+      - name: Name the cause
+        id: cause
+        if: failure()
+        env:
+          FAILED_ON_PURPOSE: ${{ inputs.fail_on_purpose }}
+        run: |
+          if [ "$FAILED_ON_PURPOSE" = "true" ]; then
+            cause=on-purpose
+          elif grep -qs invalid_grant "$RUNNER_TEMP/scan.log"; then
+            cause=gmail-token
+          else
+            cause=unknown
+          fi
+          echo "cause=$cause" >> "$GITHUB_OUTPUT"
+
+  # Opens an issue when the scan fails, so a broken day reaches you with its cause in the
+  # title rather than as a generic "workflow failed" email.
+  #
+  # A job of its own, so that it alone can write issues. The scan job runs Maven and every
+  # library the project pulls in, and none of that code ever holds a token that can write
+  # to the repository. This job runs no project code at all; it does not even check it out.
+  #
+  # The issue carries no text from the log. On a public repository issues are public too,
+  # and an error message can hold what the secrets hide in the log, such as the database's
+  # host name.
+  alert:
+    needs: scan
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+
+    steps:
+      # One open issue at a time. While it is open, each new failure is a comment on it, so
+      # a week of an expired token is one issue with seven comments, not seven issues. The
+      # mention is what makes GitHub notify you, whatever your watch settings.
+      - name: Open an issue, or comment on the open one
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CAUSE: ${{ needs.scan.outputs.cause }}
+          OWNER: ${{ github.repository_owner }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          case "$CAUSE" in
+            gmail-token)
+              title="Daily run failed: the Gmail token expired"
+              advice="Generate a new refresh token, update the \`GMAIL_REFRESH_TOKEN\` secret, and start a run by hand with \`gh workflow run daily-run.yml\`."
+              ;;
+            on-purpose)
+              title="Daily run failed on purpose, to test this alert"
+              advice="Nothing to fix: the run was asked to fail. Close this issue."
+              ;;
+            *)
+              title="Daily run failed"
+              advice="The cause is in the run's log."
+              ;;
+          esac
+
+          body="@$OWNER the daily run failed: $RUN_URL
+
+          $advice
+
+          Nothing is lost while this is open: the next run that succeeds reads from where the last one finished."
+
+          gh label create daily-run-failure --force \
+            --color B60205 --description "Opened by the daily run when it fails"
+
+          open=$(gh issue list --label daily-run-failure --state open --limit 1 \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "$(printf '**%s**\n\n%s' "$title" "$body")"
+          else
+            gh issue create --label daily-run-failure --title "$title" --body "$body"
+          fi

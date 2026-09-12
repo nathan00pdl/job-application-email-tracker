@@ -55,7 +55,7 @@ Actions tab.
 6. Classifications are persisted in Postgres, the source of truth.
 7. New/unsynced records (`sheet_synced_at IS NULL`) are written to the Google Sheet.
 8. A WhatsApp message is sent with the daily summary — every day, even when there is nothing new. _(not built yet)_
-9. If any external service is unreachable and prevents completion (not a per-email classification failure), the job fails visibly: the run is marked as failed in the Actions tab and GitHub notifies about it. A final step that also sends a separate WhatsApp alert, using a distinct message template, is _(not built yet)_.
+9. If any external service is unreachable and prevents completion (not a per-email classification failure), the job fails visibly: the run is marked as failed in the Actions tab, and a second job opens a GitHub issue — or comments on the one already open — naming the cause when the run can tell it, such as an expired Gmail token. A WhatsApp alert, using a distinct message template, is _(not built yet)_.
 10. The runner is destroyed. Nothing stays running between executions.
 
 Per-item failures (a single email failing classification) are caught and logged individually; they do not abort processing of the remaining emails in that run. Failures connecting to a whole service (e.g. Postgres unreachable) abort the run, since nothing can be persisted.
@@ -145,7 +145,7 @@ A separate, distinct template is used for the job-failure alert described in the
   - **CodeQL**, in `codeql.yml`, which compiles the project and follows data flow — it finds
     what pattern matching cannot. Both report zero findings today.
 - **Container hardening:** the Postgres dev container uses an official minimal image; if the application is ever containerized, it would run as a non-root user from a minimal JRE base image, with a `.dockerignore` excluding any credential files.
-- **CI hardening:** every GitHub Action the workflows use is pinned to a full commit SHA, with its version in a comment beside it — a tag can be moved to point at other code, a commit cannot; workflow `permissions` are scoped explicitly (`contents: read` by default) rather than left at the broad default.
+- **CI hardening:** every GitHub Action the workflows use is pinned to a full commit SHA, with its version in a comment beside it — a tag can be moved to point at other code, a commit cannot; workflow `permissions` are scoped explicitly (`contents: read` by default) rather than left at the broad default. The one job allowed to write anything — it opens an issue when the daily run fails — runs no project code, so no dependency ever holds a token that can.
 - **Transport security:** Neon refuses connections without TLS, and the connection string asks for it as well (`sslmode=require`), so the credentials and the data travel encrypted between the runner and the database.
 - **Logging:** logs record counts and times only — how many emails were read, stored and skipped, and the digest's totals by kind and platform — never a subject, a body, a sender, a token, or a credential. The one exception is the id of a message that could not be read, which means nothing without access to the mailbox. This goes beyond good practice: the repository is public, so anyone can read the log of every daily run. GitHub also hides the value of every secret wherever it appears in a log, which is why Flyway's line about the database shows `***` instead of the URL.
 
@@ -166,7 +166,7 @@ Three GitHub Actions workflows guard `main`, each triggered on `push`/`pull_requ
 
 A fourth runs the pipeline itself rather than checking the code:
 
-- **`daily-run.yml`** — every day at 09:00 UTC (06:00 in São Paulo), and by hand from the Actions tab, against the real external services. The secrets are handed to the step that runs the scan and to nothing else, and a `concurrency` group keeps a manual run from overlapping the scheduled one.
+- **`daily-run.yml`** — every day at 09:00 UTC (06:00 in São Paulo), and by hand from the Actions tab, against the real external services. The secrets are handed to the step that runs the scan and to nothing else, and a `concurrency` group keeps a manual run from overlapping the scheduled one. When the scan fails, a second job opens an issue about it; that job is the only one in any workflow allowed to write to the repository, and it runs no project code.
 
 Keeping execution separate from validation is deliberate: it avoids mixing "is this code
 correct" with "did today's run work" in one workflow, and each keeps its own run history in
