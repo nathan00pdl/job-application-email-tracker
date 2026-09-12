@@ -32,12 +32,23 @@ public class RunDailyScanUseCase {
     private static final Logger log = LoggerFactory.getLogger(RunDailyScanUseCase.class);
 
     /**
-     * How far back each run looks. Slightly more than a day on purpose: the job is
-     * scheduled daily, and an exact 24 hours would drop anything that arrived while a
-     * run was late or a previous one failed. Re-reading an email costs nothing, because
-     * the ones already stored are skipped.
+     * How far back the very first run looks, when there is no earlier scan to start from.
+     *
+     * <p>Slightly more than a day, which is what every run used before the database
+     * started remembering: a schedule that runs daily, plus enough slack to survive one
+     * late or failed attempt.
      */
-    private static final Duration WINDOW = Duration.ofHours(26);
+    private static final Duration FIRST_RUN_WINDOW = Duration.ofHours(26);
+
+    /**
+     * How far before the last scan to start reading again.
+     *
+     * <p>Gmail can index a message a little after it arrives, so a window that began
+     * exactly where the last one ended could step over something that landed on the
+     * boundary. Overlapping costs nothing — anything already stored is skipped by
+     * {@code existsByGmailMessageId} — and an hour is far more than the gap needs to be.
+     */
+    private static final Duration OVERLAP = Duration.ofHours(1);
 
     private final EmailSourcePort emailSource;
     private final EmailClassifier classifier;
@@ -72,8 +83,37 @@ public class RunDailyScanUseCase {
         summariseTheDay();
     }
 
+    /**
+     * Reads what has arrived since the last scan finished, and keeps what is about an
+     * application.
+     *
+     * <p>The starting point comes from the database, not from counting hours backwards.
+     * That is what makes a gap of any length close itself: down for three days, it reads
+     * three days; run an hour ago, it reads an hour. A fixed window can only ever cover
+     * the gap it was sized for, and anything longer is lost without a sound — the
+     * duplicate check skips what was already seen, it never goes looking for what was
+     * missed.
+     *
+     * <p>It matters here more than it would elsewhere, because the gaps are scheduled:
+     * while the OAuth app is in Testing, Google expires the refresh token every seven
+     * days, and between the expiry and the renewal there are runs that fail.
+     *
+     * <p>What is recorded is the instant the reading <em>started</em>, not the one it
+     * finished. A run takes minutes, and an email that arrives while it is running is not
+     * in the answer Gmail already gave. Recording the finish would place it before the
+     * next window and lose it; recording the start means the next run reads it again.
+     *
+     * <p>The mark is written at the end of <em>this</em> step, not at the end of the
+     * run. Emails already stored are safe, and the steps that follow have queues of
+     * their own to recover from; tying the mark to the whole run would make a spreadsheet
+     * outage force the mailbox to be read again.
+     */
     private void readAndStoreNewEmails() {
-        Instant since = clock.instant().minus(WINDOW);
+        Instant startedAt = clock.instant();
+        Instant since = persistence.lastCompletedScan()
+                .map(lastScan -> lastScan.minus(OVERLAP))
+                .orElseGet(() -> startedAt.minus(FIRST_RUN_WINDOW));
+
         List<IncomingEmail> emails = emailSource.fetchReceivedAfter(since);
 
         int stored = 0;
@@ -93,6 +133,8 @@ public class RunDailyScanUseCase {
             persistence.save(classification);
             stored++;
         }
+
+        persistence.recordScanCompleted(startedAt);
 
         log.info("read {} emails since {}: stored {}, already seen {}, not about an application {}",
                 emails.size(), since, stored, skipped, ignored);

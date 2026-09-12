@@ -107,10 +107,62 @@ class RunDailyScanUseCaseTest {
      * anything that arrived while a run was late or a previous one failed.
      */
     @Test
-    void asksTheMailboxForALittleOverADay() {
+    void asksTheMailboxForALittleOverADayOnTheVeryFirstRun() {
         useCase.run();
 
         assertThat(mailbox.askedFor).isEqualTo(NOW.minus(Duration.ofHours(26)));
+    }
+
+    /**
+     * Once a scan has finished, the window comes from the database rather than from
+     * counting hours backwards. That is what makes a gap of any length close itself.
+     */
+    @Test
+    void startsFromTheLastScanRatherThanAFixedNumberOfHours() {
+        database.scanFinishedAt(NOW.minus(Duration.ofHours(3)));
+
+        useCase.run();
+
+        assertThat(mailbox.askedFor).isEqualTo(NOW.minus(Duration.ofHours(4)));
+    }
+
+    /**
+     * The point of the whole change. A fixed window can only cover the gap it was sized
+     * for; three days down used to mean two of them lost without a sound.
+     */
+    @Test
+    void readsTheWholeGapWhenSeveralRunsWereMissed() {
+        database.scanFinishedAt(NOW.minus(Duration.ofDays(9)));
+
+        useCase.run();
+
+        assertThat(mailbox.askedFor).isEqualTo(NOW.minus(Duration.ofDays(9)).minus(Duration.ofHours(1)));
+    }
+
+    /**
+     * The mark is the instant the reading started, not the one it finished. A run takes
+     * minutes, and an email arriving while it runs is not in the answer Gmail already
+     * gave — recording the finish would place it before the next window and lose it.
+     */
+    @Test
+    void recordsWhenTheReadingStarted() {
+        useCase.run();
+
+        assertThat(database.lastCompletedScan()).contains(NOW);
+    }
+
+    /**
+     * Reading is finished once the emails are stored. Everything after it has a queue of
+     * its own, so a spreadsheet outage must not make the mailbox be read again.
+     */
+    @Test
+    void marksTheReadingDoneEvenWhenTheSpreadsheetFails() {
+        mailbox.contains(email("m1", "greenhouse.io", "Recebemos sua candidatura"));
+        sheet.breaks();
+
+        assertThatThrownBy(useCase::run).isInstanceOf(IllegalStateException.class);
+
+        assertThat(database.lastCompletedScan()).contains(NOW);
     }
 
     @Test
@@ -285,6 +337,10 @@ class RunDailyScanUseCaseTest {
 
         List<EmailClassification> digestQueue() {
             return findNotSentInDigest();
+        }
+
+        void scanFinishedAt(Instant completedAt) {
+            recordScanCompleted(completedAt);
         }
 
         void alreadyHas(String gmailMessageId) {
