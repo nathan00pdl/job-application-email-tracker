@@ -7,6 +7,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 
@@ -280,6 +281,7 @@ class RunDailyScanUseCaseTest {
         private final List<String> knownIds = new ArrayList<>();
         private final List<String> syncedIds = new ArrayList<>();
         private final List<String> digestedIds = new ArrayList<>();
+        private final List<Instant> completedScans = new ArrayList<>();
 
         List<EmailClassification> digestQueue() {
             return findNotSentInDigest();
@@ -322,6 +324,16 @@ class RunDailyScanUseCaseTest {
         @Override
         public void markSentInDigest(Collection<String> gmailMessageIds, Instant sentAt) {
             digestedIds.addAll(gmailMessageIds);
+        }
+
+        @Override
+        public Optional<Instant> lastCompletedScan() {
+            return completedScans.stream().max(Instant::compareTo);
+        }
+
+        @Override
+        public void recordScanCompleted(Instant completedAt) {
+            completedScans.add(completedAt);
         }
     }
 }
