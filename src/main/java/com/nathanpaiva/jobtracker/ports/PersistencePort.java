@@ -3,6 +3,7 @@ package com.nathanpaiva.jobtracker.ports;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 import com.nathanpaiva.jobtracker.domain.EmailClassification;
 
@@ -78,4 +79,28 @@ public interface PersistencePort {
      * rows that never reached anyone.
      */
     void markSentInDigest(Collection<String> gmailMessageIds, Instant sentAt);
+
+    /**
+     * When a scan last finished reading the mailbox, if one ever did.
+     *
+     * <p>This is what tells the next run where to start looking. Asking the database
+     * rather than counting back a fixed number of hours is what makes a gap of any length
+     * close itself: a run that has been down for three days reads three days, and one
+     * that ran an hour ago reads an hour.
+     *
+     * <p>Empty on a database that has never completed a scan, which the caller answers
+     * with a starting window of its own.
+     */
+    Optional<Instant> lastCompletedScan();
+
+    /**
+     * Records that a scan finished reading the mailbox.
+     *
+     * <p>Called when the reading is done, not when the whole run is — the two are not
+     * the same. Emails that have been read and stored are safe, and a later failure
+     * somewhere else does not un-read them. Every other step has its own queue to
+     * recover from, so tying this to the end of the run would make a spreadsheet outage
+     * force the mailbox to be read again.
+     */
+    void recordScanCompleted(Instant completedAt);
 }

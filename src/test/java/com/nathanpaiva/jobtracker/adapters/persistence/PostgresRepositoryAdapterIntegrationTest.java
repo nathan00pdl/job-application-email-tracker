@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -38,6 +39,17 @@ class PostgresRepositoryAdapterIntegrationTest extends AbstractPostgresIntegrati
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    /**
+     * The container is shared and nothing rolls back between tests — the classification
+     * tests get away with it by using a different id each time. The scan mark cannot:
+     * "no scan has finished yet" is a statement about the whole table, so it only means
+     * anything if the table starts empty.
+     */
+    @BeforeEach
+    void forgetPreviousScans() {
+        jdbcTemplate.execute("DELETE FROM scan_runs");
+    }
 
     @Test
     void savesAClassificationWithEveryValueInTheRightColumn() {
@@ -203,6 +215,41 @@ class PostgresRepositoryAdapterIntegrationTest extends AbstractPostgresIntegrati
         assertThatCode(() -> persistence.markSentInDigest(
                 List.of(), Instant.parse("2026-09-10T09:00:00Z")))
                 .doesNotThrowAnyException();
+    }
+
+    /**
+     * On a database that has never completed a scan there is nothing to answer with, and
+     * the caller supplies a starting window of its own. Returning something invented here
+     * would hide a first run behind a value nobody chose.
+     */
+    @Test
+    void hasNoLastScanBeforeAnyScanHasFinished() {
+        assertThat(persistence.lastCompletedScan()).isEmpty();
+    }
+
+    @Test
+    void remembersWhenAScanFinishedReadingTheMailbox() {
+        Instant finished = Instant.parse("2026-09-11T06:00:00Z");
+
+        persistence.recordScanCompleted(finished);
+
+        assertThat(persistence.lastCompletedScan()).contains(finished);
+    }
+
+    /**
+     * The table is append-only, so the answer is the latest row rather than the last one
+     * written. Runs that finish out of order — a retry of yesterday completing after
+     * today's — must not move the mark backwards.
+     */
+    @Test
+    void answersWithTheLatestScanEvenWhenAnOlderOneIsRecordedAfterwards() {
+        Instant newer = Instant.parse("2026-09-11T06:00:00Z");
+        Instant older = Instant.parse("2026-09-10T06:00:00Z");
+
+        persistence.recordScanCompleted(newer);
+        persistence.recordScanCompleted(older);
+
+        assertThat(persistence.lastCompletedScan()).contains(newer);
     }
 
     @Test

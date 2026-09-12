@@ -3,6 +3,7 @@ package com.nathanpaiva.jobtracker.adapters.persistence;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,9 +27,12 @@ import com.nathanpaiva.jobtracker.ports.PersistencePort;
 class PostgresRepositoryAdapter implements PersistencePort {
 
     private final EmailClassificationJpaRepository repository;
+    private final ScanRunJpaRepository scanRuns;
 
-    PostgresRepositoryAdapter(EmailClassificationJpaRepository repository) {
+    PostgresRepositoryAdapter(EmailClassificationJpaRepository repository,
+                              ScanRunJpaRepository scanRuns) {
         this.repository = repository;
+        this.scanRuns = scanRuns;
     }
 
     @Override
@@ -77,5 +81,15 @@ class PostgresRepositoryAdapter implements PersistencePort {
             return;
         }
         repository.markDigestSent(gmailMessageIds, sentAt);
+    }
+
+    @Override
+    public Optional<Instant> lastCompletedScan() {
+        return scanRuns.findLastCompletedAt();
+    }
+
+    @Override
+    public void recordScanCompleted(Instant completedAt) {
+        scanRuns.save(ScanRunEntity.completedAt(completedAt));
     }
 }
