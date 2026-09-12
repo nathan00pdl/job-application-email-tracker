@@ -9,11 +9,10 @@ This is a personal study project built to demonstrate backend engineering practi
 ## Tech stack
 
 - **Language / framework:** Java 25, Spring Boot
-- **Build tool:** Maven
-- **Database:** PostgreSQL, hosted on Neon (free tier)
+- **Build tool:** Maven, pinned with the wrapper (`./mvnw`) so every machine and CI use the same version
+- **Database:** PostgreSQL 17 — Neon (free tier, São Paulo region) in production, a Docker Compose container locally, and a Testcontainers instance during the integration tests. The three share a schema through Flyway and nothing else: no data moves between them
 - **Schema migrations:** Flyway
 - **Containerization:** Docker Compose, used for the local PostgreSQL instance only (the application itself runs directly via Maven/JVM locally, and inside the GitHub Actions runner in production — containerizing the app adds no benefit in either environment)
-- **Build tool:** pinned with the Maven wrapper (`./mvnw`), so every machine and CI use the same version
 - **Scheduling / execution:** GitHub Actions (`schedule` cron trigger, daily at 06:00 São Paulo time), no always-on server
 - **External integrations:** Gmail API, Google Sheets API, and Meta WhatsApp Cloud API _(planned)_
 
@@ -67,7 +66,7 @@ Per-item failures (a single email failing classification) are caught and logged 
 
 This works because the emails are templates: hiring platforms send the same sentences every time — *"recebemos sua candidatura"*, *"infelizmente não seguiremos"*, *"gostaríamos de convidá-lo"*. Matching phrases against templated text is a different proposition from matching them against free-form writing, and this design would be a poor one in another domain.
 
-An email counts as being about an application when it either carries a phrase showing one exists, or comes from a known hiring platform — those systems only write to people already in a process. Being about a job is not the same thing: a newsletter listing openings mentions vacancies on every line and is dropped.
+An email counts as being about an application when it either carries a phrase showing one exists, or comes from a known hiring platform. Those systems mostly write to people already in a process, but not only — a ninety-day read of real mail found Gupy sending its own marketing from the same domain as its application updates. Two things keep that out: advert phrases veto a message whatever its sender, and a short list of marketing sending addresses, such as `inbound.gupy.com.br`, stop the sender's domain from proving anything on its own. Being about a job is not the same as being about an application: a newsletter listing openings mentions vacancies on every line and is dropped.
 
 Phrases are read in order of finality — offer, rejection, interview, technical test, information request, acknowledgement — because a rejection almost always names the interview it is rejecting you after.
 
@@ -83,30 +82,39 @@ An earlier design ran a cheap rule filter first and sent only its matches to a l
 
 ## Database schema
 
-The shape below is what the table holds after both migrations. `V1` created it; `V2` dropped the four columns that supported the two-signal design described above.
+The shape below is what the tables hold after all six migrations. `V1` created `email_classifications`; `V2` dropped the four columns that supported the two-signal design described above; `V3` renamed `summary` to `subject`, because it holds the subject line and never held a summary; `V4` dropped `manual_status`, which nothing could fill; `V5` added `digest_sent_at`; and `V6` created `scan_runs`.
 
 ```sql
 CREATE TABLE email_classifications (
-    id                       BIGSERIAL PRIMARY KEY,
-    gmail_message_id         VARCHAR(64) NOT NULL UNIQUE,
+    id                   BIGSERIAL    PRIMARY KEY,
+    gmail_message_id     VARCHAR(64)  NOT NULL UNIQUE,
 
-    received_at              TIMESTAMPTZ NOT NULL,
-    sender_domain             VARCHAR(255) NOT NULL,
-    platform                  VARCHAR(100),
+    received_at          TIMESTAMPTZ  NOT NULL,
+    sender_domain        VARCHAR(255) NOT NULL,
+    platform             VARCHAR(100),
 
-    company                    VARCHAR(255),
-    role_title                 VARCHAR(255),
-    update_type                VARCHAR(50) NOT NULL,
-    subject                    TEXT,
-    is_urgent                  BOOLEAN NOT NULL DEFAULT FALSE,
+    company              VARCHAR(255),
+    role_title           VARCHAR(255),
+    update_type          VARCHAR(50)  NOT NULL,
+    subject              TEXT,
+    is_urgent            BOOLEAN      NOT NULL DEFAULT FALSE,
 
-
-    sheet_synced_at             TIMESTAMPTZ,
-    created_at                  TIMESTAMPTZ NOT NULL DEFAULT now()
+    sheet_synced_at      TIMESTAMPTZ,
+    digest_sent_at       TIMESTAMPTZ,
+    created_at           TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_email_classifications_received_at ON email_classifications (received_at);
+
+CREATE TABLE scan_runs (
+    id                   BIGSERIAL    PRIMARY KEY,
+    completed_at         TIMESTAMPTZ  NOT NULL
+);
+
+CREATE INDEX idx_scan_runs_completed_at ON scan_runs (completed_at DESC);
 ```
+
+`sheet_synced_at` and `digest_sent_at` are two independent queues: a null means the row has not reached the spreadsheet yet, or has not been delivered in a digest yet, and marking one never moves the other. `scan_runs` is append-only — one row per completed read of the mailbox, never updated — and the next run starts reading from the latest `completed_at`, which is what lets a gap of any length close itself.
 
 `update_type` is a `VARCHAR`, not a native Postgres `ENUM`, so new categories can be added without an `ALTER TYPE` migration — the allowed set is validated in the application layer instead. Notes about what happened next are written by hand in the spreadsheet, from column J onwards, which the sync never touches — the database has no column for them, and `V4` removed the one that tried.
 
@@ -114,7 +122,7 @@ CREATE INDEX idx_email_classifications_received_at ON email_classifications (rec
 
 Uses the official Meta WhatsApp Cloud API (chosen over Twilio: one fewer intermediary, no ongoing per-message cost within the free test-number tier, and a more direct integration to demonstrate). Because the daily message is business-initiated (not a reply to a user message), it must be sent via a pre-approved Message Template with dynamic variables.
 
-**v1 (current scope):** plain-text summary filled into the template (counts by update type, companies involved). No hosting dependency required.
+**v1 (current scope):** plain-text summary filled into the template from the `DailyDigest` each run already builds and logs: how many updates, how many of each kind, how many are urgent, which platforms they came from, and the period they cover. It names no company, because the classifier does not read one out of the email yet. No hosting dependency required.
 
 **v2 (planned follow-up):** the template's call-to-action button links to a hosted HTML report for a richer view. Deferred because it requires an additional piece of infrastructure (static file hosting with a non-guessable/private URL) not needed for v1.
 
@@ -123,7 +131,7 @@ A separate, distinct template is used for the job-failure alert described in the
 ## Security posture
 
 - **Secrets:** OAuth tokens, service account credentials, the Neon connection string, and the WhatsApp access token are never committed. They live in GitHub Secrets and are injected as environment variables at runtime. GitHub Secret Scanning + push protection is enabled on the repository.
-- **Least privilege:** Gmail access is `gmail.readonly` only; the Sheets service account is shared with a single specific spreadsheet, not the whole Drive; the Neon database user has only the permissions this application needs.
+- **Least privilege:** Gmail access is `gmail.readonly` only; the Sheets service account is shared with a single specific spreadsheet, not the whole Drive. The application connects to Neon as `jobtracker`, a role created with SQL for this purpose, rather than as `neondb_owner`, the role Neon creates with the project, which belongs to `neon_superuser`. `jobtracker` can log in and use and create tables in the `public` schema — `CREATE` is needed because Flyway runs with the application's own credentials — and nothing else: it cannot create roles or databases.
 - **SQL injection:** all persistence goes through Spring Data JPA / parameterized queries; no manual string concatenation into SQL.
 - **Dependency vulnerabilities:** Dependabot is enabled on the repository, with its alerts and
   automatic fixes turned on. On every pull request, `dependency-review.yml` inspects the
@@ -137,14 +145,15 @@ A separate, distinct template is used for the job-failure alert described in the
   - **CodeQL**, in `codeql.yml`, which compiles the project and follows data flow — it finds
     what pattern matching cannot. Both report zero findings today.
 - **Container hardening:** the Postgres dev container uses an official minimal image; if the application is ever containerized, it would run as a non-root user from a minimal JRE base image, with a `.dockerignore` excluding any credential files.
-- **CI hardening:** third-party GitHub Actions are pinned to specific versions; workflow `permissions` are scoped explicitly (`contents: read` by default) rather than left at the broad default.
-- **Transport security:** the Neon connection enforces TLS.
-- **Logging:** logs record metadata only (e.g. "processed email from domain X, classified as Y, id Z") — never full email bodies, tokens, or credentials.
+- **CI hardening:** every GitHub Action the workflows use is pinned to a full commit SHA, with its version in a comment beside it — a tag can be moved to point at other code, a commit cannot; workflow `permissions` are scoped explicitly (`contents: read` by default) rather than left at the broad default.
+- **Transport security:** Neon refuses connections without TLS, and the connection string asks for it as well (`sslmode=require`), so the credentials and the data travel encrypted between the runner and the database.
+- **Logging:** logs record counts and times only — how many emails were read, stored and skipped, and the digest's totals by kind and platform — never a subject, a body, a sender, a token, or a credential. The one exception is the id of a message that could not be read, which means nothing without access to the mailbox. This goes beyond good practice: the repository is public, so anyone can read the log of every daily run. GitHub also hides the value of every secret wherever it appears in a log, which is why Flyway's line about the database shows `***` instead of the URL.
 
 ## Testing strategy
 
 - **Unit tests (JUnit 5 + AssertJ):** the domain and application layers (the classifier, digest building) are tested with no mocking framework, since they depend on nothing — fakes are enough for the ports. The Gmail adapter's MIME and base64 handling is tested the same way, by building API objects by hand.
 - **Integration tests (Testcontainers):** the persistence adapter (`PostgresRepositoryAdapter`) is tested against a real, disposable PostgreSQL container — this is what validates real behavior such as the `gmail_message_id` unique constraint that idempotency depends on.
+- **Checks against the real mailbox (opt-in):** two tests read the author's own Gmail and run only when `GMAIL_REFRESH_TOKEN` is set, so CI skips them. `GmailApiManualVerificationTest` confirms the credentials work. `ClassifierAgainstRealMailboxTest` runs the classifier over a chosen number of days of real mail and prints what it kept; a person reads the result, because whether a real email is about an application is exactly what the test cannot know by itself. That is how the rules were measured, and corrected, against 90 days of real mail.
 - **Out of scope for now:** end-to-end tests hitting the real external APIs (Gmail, WhatsApp, Sheets) in CI — this would require production credentials in CI for limited benefit; confidence in the full pipeline comes from the actual daily run instead.
 
 ## CI/CD

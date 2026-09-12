@@ -15,9 +15,9 @@ that talks to Gmail, PostgreSQL and Google Sheets adapts itself to them. Nothing
 against lists in memory.
 
 The dashed slot on the top edge is there on purpose: this project has no driving port yet.
-`DailyScanRunner` calls `RunDailyScanUseCase` directly, because a scheduled run is the
-only way to start the application. An HTTP endpoint or a CLI command is what would turn
-that slot into an interface.
+`DailyScanRunner` calls `RunDailyScanUseCase` directly, because there is only one way to
+start the application — a run of the job, whether scheduled or started by hand. An HTTP
+endpoint or a CLI command is what would turn that slot into an interface.
 
 `PipelineConfiguration` sits outside the hexagon because it is the wiring: it builds the
 objects and connects them, which is what lets `domain` and `application` carry no
@@ -29,8 +29,9 @@ rules and knows nothing about order, storage or the network.
 ## Requirements
 
 - Java 25
-- Maven 3.9+
 - Docker (for the local PostgreSQL instance, and for Testcontainers during the build)
+
+Maven itself is not needed: `./mvnw` downloads and runs the pinned version.
 
 ## Local setup
 
@@ -153,14 +154,28 @@ consent that expires — so none of the token renewal that the mailbox needs app
 Rows are appended, never rewritten. Column J onwards is left alone, which is where notes
 belong.
 
-## Checking the Gmail credentials
+## Checking against the real mailbox
 
-One test reads the real mailbox. It runs only when `GMAIL_REFRESH_TOKEN` is set, so CI
-skips it:
+Two tests read the real mailbox. Both run only when `GMAIL_REFRESH_TOKEN` is set, so CI
+skips them.
+
+**The credentials.** Prints how many emails were read and their sender domains — no
+subjects, no bodies:
 
 ```bash
 set -a && source .env && set +a
 ./mvnw test -Dtest=GmailApiManualVerificationTest
 ```
 
-It prints how many emails were read and their sender domains — no subjects, no bodies.
+**The classifier.** Runs the rules over real mail and prints what they kept, so a person
+can judge what no invented test case can: whether the rules still match reality. Worth
+running after any change to the classifier.
+
+```bash
+set -a && source .env && set +a
+./mvnw test -Dtest=ClassifierAgainstRealMailboxTest -Dmailbox.days=90 -Dreport.dir=$HOME
+```
+
+Without `-Dreport.dir` it writes nothing to disk and prints only the summary and the kept
+emails. With it, the full report — including the ignored ones, which is where a missed
+application shows up — goes to a file in that directory, outside the repository.

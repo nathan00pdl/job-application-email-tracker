@@ -37,6 +37,10 @@ hours.
   with credentials held by the author.
 - A private Google Sheet owned by the same Google account, used as a dashboard.
 
+Each run also leaves a log on GitHub Actions. Because the repository is public, anyone can
+read that log, so it holds only counts, dates and the names of hiring platforms — never a
+subject, a sender, the text of a message, or any credential.
+
 A daily summary sent to the author's own number over WhatsApp is planned and is not built
 yet. No message is sent anywhere today.
 
