@@ -14,7 +14,7 @@ This is a personal study project built to demonstrate backend engineering practi
 - **Schema migrations:** Flyway
 - **Containerization:** Docker Compose, used for the local PostgreSQL instance only (the application itself runs directly via Maven/JVM locally, and inside the GitHub Actions runner in production — containerizing the app adds no benefit in either environment)
 - **Scheduling / execution:** GitHub Actions (`schedule` cron trigger, daily at 06:00 São Paulo time), no always-on server
-- **External integrations:** Gmail API, Google Sheets API, and Meta WhatsApp Cloud API _(planned)_
+- **External integrations:** Gmail API, Google Sheets API, and Meta WhatsApp Cloud API (from Meta's free test number)
 
 ## Language convention
 
@@ -30,14 +30,14 @@ The system is fundamentally an orchestrator around external integrations (Gmail,
   - `EmailSourcePort` — fetch emails received after a given instant (how far back to look is the use case's decision, not the port's)
   - `PersistencePort` — read/write `EmailClassification` records
   - `SpreadsheetPort` — sync records to the dashboard
-  - `NotificationPort` — deliver the daily digest; returning means the channel accepted it _(implemented by the WhatsApp adapter; nothing calls it yet)_
+  - `NotificationPort` — deliver the daily digest; returning means the channel accepted it
 - **`adapters`** — concrete implementations of each port:
   - `adapters/runner` → `DailyScanRunner implements ApplicationRunner` — the driving side:
     the only thing that starts a run today
   - `adapters/gmail` → `GmailApiAdapter implements EmailSourcePort`
   - `adapters/persistence` → `PostgresRepositoryAdapter implements PersistencePort` (Spring Data JPA)
   - `adapters/sheets` → `GoogleSheetsAdapter implements SpreadsheetPort`
-  - `adapters/whatsapp` → `MetaWhatsAppAdapter implements NotificationPort`, sending the approved template through Meta's Cloud API; `DigestMessage` fills its blanks from a digest _(built; the daily run does not call it yet)_
+  - `adapters/whatsapp` → `MetaWhatsAppAdapter implements NotificationPort`, sending the approved template through Meta's Cloud API; `DigestMessage` fills its blanks from a digest
 
 Swapping an integration (e.g. WhatsApp provider, database host) means writing a new adapter — the domain and application layers are untouched. This also makes the domain trivially testable without mocking frameworks, since it only depends on interfaces.
 
@@ -54,7 +54,7 @@ Actions tab.
 5. `EmailClassifier` reads each email. It answers with a classification, or with nothing when the email is not about a job application — and those are dropped without being recorded.
 6. Classifications are persisted in Postgres, the source of truth.
 7. New/unsynced records (`sheet_synced_at IS NULL`) are written to the Google Sheet.
-8. A WhatsApp message is sent with the daily summary — every day, even when there is nothing new. _(not built yet)_
+8. Everything not yet delivered (`digest_sent_at IS NULL`) is added up into a `DailyDigest` and sent as a WhatsApp template — every day, even when there is nothing new. The rows are marked as delivered only after Meta accepts the message, so a failed send leaves them for the next run's digest.
 9. If any external service is unreachable and prevents completion (not a per-email classification failure), the job fails visibly: the run is marked as failed in the Actions tab, and a second job opens a GitHub issue — or comments on the one already open — naming the cause when the run can tell it, such as an expired Gmail token. A WhatsApp alert, using a distinct message template, is _(not built yet)_.
 10. The runner is destroyed. Nothing stays running between executions.
 

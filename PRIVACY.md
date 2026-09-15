@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Last updated: 2026-09-12
+Last updated: 2026-09-15
 
 **job-application-email-tracker** ("the app") is a personal, open-source project built
 and run by one person, for that person's own mailbox. It has no other users, no company
@@ -41,8 +41,13 @@ Each run also leaves a log on GitHub Actions. Because the repository is public, 
 read that log, so it holds only counts, dates and the names of hiring platforms — never a
 subject, a sender, the text of a message, or any credential.
 
-A daily summary sent to the author's own number over WhatsApp is planned and is not built
-yet. No message is sent anywhere today.
+## The daily summary
+
+Once a day, a summary is sent to the author's own phone number over WhatsApp, through
+Meta's WhatsApp Cloud API. It holds the same kind of information as the log: how many
+updates arrived, how many of each kind, how many are urgent, the names of the hiring
+platforms, and the dates they cover. It never holds a subject, a sender, or any text from
+a message. Meta receives it only to deliver it.
 
 Access credentials are held as GitHub Actions secrets for the scheduled run, and in a local
 `.env` file on the author's machine for runs started by hand. Neither is ever committed to
@@ -50,7 +55,8 @@ version control.
 
 ## What the app does not do
 
-- It does not sell, share, or publish your data.
+- It does not sell or publish your data. The daily summary above is the only thing that
+  leaves for a messaging service, and it goes to the author's own number.
 - It does not use your data for advertising, and no data ever reaches a model of any
   kind.
 - It serves no users other than the account that authorised it.

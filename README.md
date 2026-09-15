@@ -1,6 +1,6 @@
 # job-application-email-tracker
 
-A daily job that scans a Gmail inbox for emails about job applications, classifies them with a set of rules that runs locally, saves the results in PostgreSQL, and copies them into a Google Sheet. A daily summary over WhatsApp is still to come.
+A daily job that scans a Gmail inbox for emails about job applications, classifies them with a set of rules that runs locally, saves the results in PostgreSQL, copies them into a Google Sheet, and sends a daily summary over WhatsApp.
 
 See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full design.
 
@@ -169,6 +169,45 @@ consent that expires — so none of the token renewal that the mailbox needs app
 
 Rows are appended, never rewritten. Column J onwards is left alone, which is where notes
 belong.
+
+## The WhatsApp digest
+
+At the end of every run, whatever has not been reported yet goes out as one WhatsApp
+message to your own number — every day, even when there is nothing new, so that a morning
+without one means something failed. It is sent from Meta's free test number, through the
+WhatsApp Cloud API, as the approved template `resumo_diario`:
+
+```
+Resumo diário das suas candidaturas, referente a {{1}}.
+
+Novidades recebidas: {{2}}, das quais {{3}} pedem atenção urgente.
+
+Por tipo de atualização: {{4}}.
+
+Plataformas de origem: {{5}}.
+
+Os detalhes de cada e-mail estão na planilha de acompanhamento.
+```
+
+What goes out is counted, never quoted: numbers, dates and platform names, with no
+subject and no sender. The classifications it covers are marked as reported only after
+Meta accepts the message, so a delivery that fails leaves them for the next run, and the
+period in the message stretches to show the gap.
+
+Setting it up, once, on Meta's side:
+
+1. Register as a Meta developer and create an app with the *Connect with customers
+   through WhatsApp* use case.
+2. In *Step 1 · Try it*, claim the free test number and add your own number as a
+   recipient.
+3. In WhatsApp Manager, on the test account, create `resumo_diario`: category Utility,
+   language Portuguese (BR), the text above, and a fixed header with no variable — the
+   editor refuses an empty one.
+4. In Business settings, add a system user with the Employee role, assign it the app and
+   the test WhatsApp account, and generate a token that never expires, with only the
+   `whatsapp_business_messaging` permission.
+5. Put the token, the test number's Phone Number ID and your number, digits only, in
+   `.env` and in the repository secrets.
 
 ## Checking against the real mailbox
 
