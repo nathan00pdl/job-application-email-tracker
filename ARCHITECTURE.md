@@ -55,7 +55,7 @@ Actions tab.
 6. Classifications are persisted in Postgres, the source of truth.
 7. New/unsynced records (`sheet_synced_at IS NULL`) are written to the Google Sheet.
 8. Everything not yet delivered (`digest_sent_at IS NULL`) is added up into a `DailyDigest` and sent as a WhatsApp template — every day, even when there is nothing new. The rows are marked as delivered only after Meta accepts the message, so a failed send leaves them for the next run's digest.
-9. If any external service is unreachable and prevents completion (not a per-email classification failure), the job fails visibly: the run is marked as failed in the Actions tab, and a second job opens a GitHub issue — or comments on the one already open — naming the cause when the run can tell it, such as an expired Gmail token. A WhatsApp alert, using a distinct message template, is _(not built yet)_.
+9. If any external service is unreachable and prevents completion (not a per-email classification failure), the job fails visibly: the run is marked as failed in the Actions tab, and a second job opens a GitHub issue — or comments on the one already open — naming the cause when the run can tell it: an expired Gmail token, or one of the WhatsApp refusals the adapter reports — the token, access to the test number, or a template that is not active. A WhatsApp alert, using a distinct message template, is _(not built yet)_.
 10. The runner is destroyed. Nothing stays running between executions.
 
 Per-item failures (a single email failing classification) are caught and logged individually; they do not abort processing of the remaining emails in that run. Failures connecting to a whole service (e.g. Postgres unreachable) abort the run, since nothing can be persisted.
