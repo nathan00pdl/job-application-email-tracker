@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class DigestMessageTest {
 
-    /** 06:00 in São Paulo on 15/09, when the scheduled run is meant to send. */
+    /** 06:00 in São Paulo on 15/09, the time by which the digest should have arrived. */
     private static final Instant SENT_AT = Instant.parse("2026-09-15T09:00:00Z");
 
     @Test

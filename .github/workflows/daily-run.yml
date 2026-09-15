@@ -9,12 +9,15 @@ name: Daily run
 
 on:
   schedule:
-    # 09:00 UTC is 06:00 in São Paulo, so the day's news is in before the morning.
+    # 06:17 UTC is 03:17 in São Paulo. The goal is a digest on the phone by 06:00, and the
+    # run is set well before that because GitHub starts scheduled workflows on a
+    # best-effort basis: it delays them when it is busy, most of all at the start of each
+    # hour, and can drop them altogether. In the first days, a run set for 09:00 UTC
+    # started four to six hours late. Hence the early hour, and a minute that is not :00.
     #
-    # GitHub runs scheduled workflows on a best-effort basis and delays them at busy hours,
-    # sometimes by a lot. That does not cost anything here: each run starts reading from
-    # where the last one finished, so a late run simply reads more.
-    - cron: "0 9 * * *"
+    # A late run costs nothing else: each run starts reading from where the last one
+    # finished, so a late run simply reads more.
+    - cron: "17 6 * * *"
   # By hand, from the Actions tab or `gh workflow run daily-run.yml` — to check a renewed
   # token the same day instead of waiting for tomorrow's schedule.
   workflow_dispatch:
