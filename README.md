@@ -107,9 +107,11 @@ To start it without scanning, set `RUN_ON_STARTUP=false`.
 
 ## The daily run
 
-`.github/workflows/daily-run.yml` runs the scan every day at 06:00 in São Paulo (09:00 UTC),
-against a PostgreSQL database hosted on Neon rather than the local container. It reads its
-configuration from these repository secrets:
+`.github/workflows/daily-run.yml` runs the scan every day at 03:17 in São Paulo (06:17 UTC),
+against a PostgreSQL database hosted on Neon rather than the local container. The hour is
+early on purpose: GitHub starts scheduled runs late, sometimes by hours, and the digest
+should be on the phone by 06:00. The run reads its configuration from these repository
+secrets:
 
 `DATASOURCE_URL` · `DATASOURCE_USERNAME` · `DATASOURCE_PASSWORD` ·
 `GMAIL_CLIENT_ID` · `GMAIL_CLIENT_SECRET` · `GMAIL_REFRESH_TOKEN` ·

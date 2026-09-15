@@ -13,7 +13,7 @@ This is a personal study project built to demonstrate backend engineering practi
 - **Database:** PostgreSQL 17 — Neon (free tier, São Paulo region) in production, a Docker Compose container locally, and a Testcontainers instance during the integration tests. The three share a schema through Flyway and nothing else: no data moves between them
 - **Schema migrations:** Flyway
 - **Containerization:** Docker Compose, used for the local PostgreSQL instance only (the application itself runs directly via Maven/JVM locally, and inside the GitHub Actions runner in production — containerizing the app adds no benefit in either environment)
-- **Scheduling / execution:** GitHub Actions (`schedule` cron trigger, daily at 06:00 São Paulo time), no always-on server
+- **Scheduling / execution:** GitHub Actions (`schedule` cron trigger, daily at 03:17 São Paulo time — early, so the digest arrives by 06:00 despite GitHub's delays), no always-on server
 - **External integrations:** Gmail API, Google Sheets API, and Meta WhatsApp Cloud API (from Meta's free test number)
 
 ## Language convention
@@ -168,7 +168,7 @@ Three GitHub Actions workflows guard `main`, each triggered on `push`/`pull_requ
 
 A fourth runs the pipeline itself rather than checking the code:
 
-- **`daily-run.yml`** — every day at 09:00 UTC (06:00 in São Paulo), and by hand from the Actions tab, against the real external services. The secrets are handed to the step that runs the scan and to nothing else — apart from the database URL, which the first step reads to hide the database's host in the log — and a `concurrency` group keeps a manual run from overlapping the scheduled one. When the scan fails, a second job opens an issue about it; that job is the only one in any workflow allowed to write to the repository, and it runs no project code.
+- **`daily-run.yml`** — every day at 06:17 UTC (03:17 in São Paulo — early and off the hour, because GitHub starts scheduled runs late, sometimes by hours), and by hand from the Actions tab, against the real external services. The secrets are handed to the step that runs the scan and to nothing else — apart from the database URL, which the first step reads to hide the database's host in the log — and a `concurrency` group keeps a manual run from overlapping the scheduled one. When the scan fails, a second job opens an issue about it; that job is the only one in any workflow allowed to write to the repository, and it runs no project code.
 
 Keeping execution separate from validation is deliberate: it avoids mixing "is this code
 correct" with "did today's run work" in one workflow, and each keeps its own run history in
