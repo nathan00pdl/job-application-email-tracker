@@ -111,16 +111,29 @@ jobs:
 
       # Turns the failure into one word for the alert job. Only that word leaves this job,
       # never a line of the log — the alert job explains why.
+      #
+      # The WhatsApp words come from Meta's error codes, as MetaWhatsAppAdapter reports
+      # them: 190 is a token Meta no longer accepts, 100 a token that cannot reach the test
+      # number, and 132001 a template with no active version in the language asked for.
       - name: Name the cause
         id: cause
         if: failure()
         env:
           FAILED_ON_PURPOSE: ${{ inputs.fail_on_purpose }}
         run: |
+          log="$RUNNER_TEMP/scan.log"
           if [ "$FAILED_ON_PURPOSE" = "true" ]; then
             cause=on-purpose
-          elif grep -qs invalid_grant "$RUNNER_TEMP/scan.log"; then
+          elif grep -qs invalid_grant "$log"; then
             cause=gmail-token
+          elif grep -qs "WhatsApp refused the digest: .*code 190:" "$log"; then
+            cause=whatsapp-token
+          elif grep -qs "WhatsApp refused the digest: .*code 100:" "$log"; then
+            cause=whatsapp-access
+          elif grep -qs "WhatsApp refused the digest: .*code 132001:" "$log"; then
+            cause=whatsapp-template
+          elif grep -qs "WhatsApp refused the digest" "$log"; then
+            cause=whatsapp
           else
             cause=unknown
           fi
@@ -160,6 +173,22 @@ jobs:
             gmail-token)
               title="Daily run failed: the Gmail token expired"
               advice="Generate a new refresh token, update the \`GMAIL_REFRESH_TOKEN\` secret, and start a run by hand with \`gh workflow run daily-run.yml\`."
+              ;;
+            whatsapp-token)
+              title="Daily run failed: WhatsApp refused the token"
+              advice="Generate a new token for the \`job-digest\` system user in Meta's Business settings (expiry Never, \`whatsapp_business_messaging\`), update the \`WHATSAPP_ACCESS_TOKEN\` secret, and start a run by hand with \`gh workflow run daily-run.yml\`."
+              ;;
+            whatsapp-access)
+              title="Daily run failed: WhatsApp refused access to the test number"
+              advice="Check in Meta's Business settings that the \`job-digest\` system user has the test WhatsApp account assigned with full control, and that \`WHATSAPP_PHONE_NUMBER_ID\` is the test number's id."
+              ;;
+            whatsapp-template)
+              title="Daily run failed: the WhatsApp template is not active"
+              advice="Check in WhatsApp Manager that \`resumo_diario\` is Active, in Portuguese (BR). The digest waits in the queue until it is."
+              ;;
+            whatsapp)
+              title="Daily run failed: WhatsApp refused the digest"
+              advice="Meta's error code is in the run's log."
               ;;
             on-purpose)
               title="Daily run failed on purpose, to test this alert"
