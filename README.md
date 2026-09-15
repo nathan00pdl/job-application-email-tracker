@@ -6,11 +6,11 @@ See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full design.
 
 ## Architecture
 
-![Hexagonal architecture: the domain and the use case inside the hexagon, three ports on its edges, the adapters that implement them outside, and the systems they talk to.](docs/architecture.svg)
+![Hexagonal architecture: the domain and the use case inside the hexagon, four ports on its edges, the adapters that implement them outside, and the systems they talk to.](docs/architecture.svg)
 
-The three dashed arrows are the point. They run from the adapters **into** the ports:
+The four dashed arrows are the point. They run from the adapters **into** the ports:
 the interfaces are declared on the inside, in the language of the problem, and the code
-that talks to Gmail, PostgreSQL and Google Sheets adapts itself to them. Nothing in
+that talks to Gmail, PostgreSQL, Google Sheets and WhatsApp adapts itself to them. Nothing in
 `domain` or `application` names a vendor, which is why the whole daily run can be tested
 against lists in memory.
 
