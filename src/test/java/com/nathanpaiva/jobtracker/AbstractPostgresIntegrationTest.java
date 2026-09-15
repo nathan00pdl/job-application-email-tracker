@@ -49,7 +49,12 @@ import org.testcontainers.utility.DockerImageName;
         // Without this, booting a context here would start the daily scan and
         // reach for a real mailbox with fake credentials.
         "jobtracker.run-on-startup=false",
-        "google.sheets.spreadsheet-id=test-spreadsheet-id"
+        "google.sheets.spreadsheet-id=test-spreadsheet-id",
+        // The WhatsApp settings have no default either. Nothing in these tests sends a
+        // message, so any value does.
+        "whatsapp.access-token=test-access-token",
+        "whatsapp.phone-number-id=test-phone-number-id",
+        "whatsapp.recipient=5500000000000"
 })
 public abstract class AbstractPostgresIntegrationTest {
 

@@ -85,7 +85,8 @@ set -a && source .env && set +a
 
 The database username and password have no default value: the application will not
 start if `DATASOURCE_USERNAME` and `DATASOURCE_PASSWORD` are not set. The same holds for
-`GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET` and `GMAIL_REFRESH_TOKEN`.
+`GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET` and `GMAIL_REFRESH_TOKEN`, and for
+`WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` and `WHATSAPP_RECIPIENT`.
 
 ## Running the scan
 
@@ -112,7 +113,8 @@ configuration from these repository secrets:
 
 `DATASOURCE_URL` · `DATASOURCE_USERNAME` · `DATASOURCE_PASSWORD` ·
 `GMAIL_CLIENT_ID` · `GMAIL_CLIENT_SECRET` · `GMAIL_REFRESH_TOKEN` ·
-`GOOGLE_SHEETS_CREDENTIALS` · `GOOGLE_SHEETS_SPREADSHEET_ID`
+`GOOGLE_SHEETS_CREDENTIALS` · `GOOGLE_SHEETS_SPREADSHEET_ID` ·
+`WHATSAPP_ACCESS_TOKEN` · `WHATSAPP_PHONE_NUMBER_ID` · `WHATSAPP_RECIPIENT`
 
 The local `.env` keeps pointing at the local container, so a run started by hand never
 writes to the real database.
