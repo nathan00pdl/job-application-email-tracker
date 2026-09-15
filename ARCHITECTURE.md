@@ -18,7 +18,7 @@ This is a personal study project built to demonstrate backend engineering practi
 
 ## Language convention
 
-All code, comments, configuration, commit messages, and documentation are written in English. The one exception is data captured from emails (sender content, extracted summaries) — those are stored and displayed in their original language, since most applications are submitted in pt-BR with occasional en-US emails.
+All code, comments, configuration, commit messages, and documentation are written in English. Two things are not, because a person reads them rather than a developer: data captured from emails (sender content, extracted summaries), stored and displayed in its original language since most applications are submitted in pt-BR with occasional en-US emails; and the text of the daily WhatsApp digest, written in pt-BR for its reader.
 
 ## Architecture style: Hexagonal (Ports & Adapters)
 
@@ -30,14 +30,14 @@ The system is fundamentally an orchestrator around external integrations (Gmail,
   - `EmailSourcePort` — fetch emails received after a given instant (how far back to look is the use case's decision, not the port's)
   - `PersistencePort` — read/write `EmailClassification` records
   - `SpreadsheetPort` — sync records to the dashboard
-  - `NotificationPort` — send the daily summary / failure alert _(not built yet)_
+  - `NotificationPort` — deliver the daily digest; returning means the channel accepted it _(declared; nothing implements or calls it yet)_
 - **`adapters`** — concrete implementations of each port:
   - `adapters/runner` → `DailyScanRunner implements ApplicationRunner` — the driving side:
     the only thing that starts a run today
   - `adapters/gmail` → `GmailApiAdapter implements EmailSourcePort`
   - `adapters/persistence` → `PostgresRepositoryAdapter implements PersistencePort` (Spring Data JPA)
   - `adapters/sheets` → `GoogleSheetsAdapter implements SpreadsheetPort`
-  - `adapters/whatsapp` → `MetaWhatsAppAdapter implements NotificationPort` _(not built yet)_
+  - `adapters/whatsapp` → `DigestMessage` fills the approved template's blanks from a digest; `MetaWhatsAppAdapter implements NotificationPort` _(not built yet)_
 
 Swapping an integration (e.g. WhatsApp provider, database host) means writing a new adapter — the domain and application layers are untouched. This also makes the domain trivially testable without mocking frameworks, since it only depends on interfaces.
 
@@ -123,6 +123,8 @@ CREATE INDEX idx_scan_runs_completed_at ON scan_runs (completed_at DESC);
 Uses the official Meta WhatsApp Cloud API (chosen over Twilio: one fewer intermediary, no ongoing per-message cost within the free test-number tier, and a more direct integration to demonstrate). Because the daily message is business-initiated (not a reply to a user message), it must be sent via a pre-approved Message Template with dynamic variables.
 
 **v1 (current scope):** plain-text summary filled into the template from the `DailyDigest` each run already builds and logs: how many updates, how many of each kind, how many are urgent, which platforms they came from, and the period they cover. It names no company, because the classifier does not read one out of the email yet. No hosting dependency required.
+
+The template is `resumo_diario`, in pt-BR, with five blanks: the period, the total, how many are urgent, the counts by kind as one line (*"1 entrevista, 2 recusas"*), and the platforms. `DigestMessage` fills them. The counts by kind share a single blank because Meta allows only so many blanks for the length of a template's text, and a value cannot hold a line break.
 
 **v2 (planned follow-up):** the template's call-to-action button links to a hosted HTML report for a richer view. Deferred because it requires an additional piece of infrastructure (static file hosting with a non-guessable/private URL) not needed for v1.
 
