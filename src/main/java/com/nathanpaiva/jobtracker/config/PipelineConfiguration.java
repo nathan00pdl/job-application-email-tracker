@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 import com.nathanpaiva.jobtracker.application.RunDailyScanUseCase;
 import com.nathanpaiva.jobtracker.domain.EmailClassifier;
 import com.nathanpaiva.jobtracker.ports.EmailSourcePort;
+import com.nathanpaiva.jobtracker.ports.NotificationPort;
 import com.nathanpaiva.jobtracker.ports.PersistencePort;
 import com.nathanpaiva.jobtracker.ports.SpreadsheetPort;
 
@@ -21,8 +22,8 @@ import com.nathanpaiva.jobtracker.ports.SpreadsheetPort;
  *
  * <p>The adapters do not appear below. They are annotated with {@code @Component} and
  * found on their own, and Spring passes them in wherever a port is asked for — which is
- * how {@link RunDailyScanUseCase} ends up talking to Gmail and PostgreSQL without ever
- * naming either.
+ * how {@link RunDailyScanUseCase} ends up talking to Gmail, PostgreSQL, Google Sheets and
+ * WhatsApp without ever naming any of them.
  */
 @Configuration
 class PipelineConfiguration {
@@ -48,7 +49,9 @@ class PipelineConfiguration {
                                             EmailClassifier classifier,
                                             PersistencePort persistence,
                                             SpreadsheetPort spreadsheet,
+                                            NotificationPort notification,
                                             Clock clock) {
-        return new RunDailyScanUseCase(emailSource, classifier, persistence, spreadsheet, clock);
+        return new RunDailyScanUseCase(
+                emailSource, classifier, persistence, spreadsheet, notification, clock);
     }
 }

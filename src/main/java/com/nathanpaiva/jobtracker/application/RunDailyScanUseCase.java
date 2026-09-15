@@ -13,11 +13,13 @@ import com.nathanpaiva.jobtracker.domain.EmailClassification;
 import com.nathanpaiva.jobtracker.domain.EmailClassifier;
 import com.nathanpaiva.jobtracker.domain.IncomingEmail;
 import com.nathanpaiva.jobtracker.ports.EmailSourcePort;
+import com.nathanpaiva.jobtracker.ports.NotificationPort;
 import com.nathanpaiva.jobtracker.ports.PersistencePort;
 import com.nathanpaiva.jobtracker.ports.SpreadsheetPort;
 
 /**
- * The daily run: read the mailbox, keep what is about a job application, store it.
+ * The daily run: read the mailbox, keep what is about a job application, store it, and
+ * report it.
  *
  * <p>This class holds the order of the steps and nothing else. Every question about what
  * an email <em>means</em> belongs to {@link EmailClassifier}, and every question about
@@ -54,6 +56,7 @@ public class RunDailyScanUseCase {
     private final EmailClassifier classifier;
     private final PersistencePort persistence;
     private final SpreadsheetPort spreadsheet;
+    private final NotificationPort notification;
     private final Clock clock;
 
     /**
@@ -69,18 +72,19 @@ public class RunDailyScanUseCase {
      */
     public RunDailyScanUseCase(EmailSourcePort emailSource, EmailClassifier classifier,
                                PersistencePort persistence, SpreadsheetPort spreadsheet,
-                               Clock clock) {
+                               NotificationPort notification, Clock clock) {
         this.emailSource = emailSource;
         this.classifier = classifier;
         this.persistence = persistence;
         this.spreadsheet = spreadsheet;
+        this.notification = notification;
         this.clock = clock;
     }
 
     public void run() {
         readAndStoreNewEmails();
         mirrorToSpreadsheet();
-        summariseTheDay();
+        deliverTheDigest();
     }
 
     /**
@@ -170,37 +174,43 @@ public class RunDailyScanUseCase {
     }
 
     /**
-     * Adds up everything still waiting to be delivered in a digest, and writes it to the
-     * log.
+     * Sends everything still waiting to be delivered, and marks it once it has gone.
      *
-     * <p><b>Nothing is marked here.</b> Marking means "this was delivered", and today
-     * there is nowhere to deliver to — the digest only reaches the log. Marking on a log
-     * line would empty the queue while nothing had been sent, and those classifications
-     * would never appear in a real message once one exists. The call to
-     * {@code markSentInDigest} belongs with whatever does the sending.
+     * <p><b>The mark comes after the send, and only then.</b> Marking means "this reached
+     * the reader". A send that fails throws before the mark, so the classifications stay
+     * in the queue and go out in the next run's digest, whose period stretches to cover
+     * them. Marking first would empty the queue on a day when nothing arrived.
      *
-     * <p>Until then the log shows the queue growing, which is the queue working.
+     * <p>The digest goes out even when it is empty. A day with no news is still reported,
+     * so that a morning without a message means something went wrong, not that nothing
+     * happened.
      *
-     * <p>Note what is not passed in: no window, and no instant. The digest covers what
-     * the database says is undelivered, whether that is one day or three, and reports
-     * the period it found. That is the difference between a queue and a window, and it
-     * is why a delivery that fails costs a delay rather than a day of news.
+     * <p>Note what is not passed in: no window, and no instant. The digest covers what the
+     * database says is undelivered, whether that is one day or three, and reports the
+     * period it found. That is the difference between a queue and a window.
      *
-     * <p>Package-private rather than private so the test can read what was built. The
-     * alternative was asserting on log output, which breaks the moment someone rewords a
-     * message.
+     * <p>What is marked is the very list the digest was built from, not the answer to a
+     * second query, so nothing can be marked as delivered without having been counted in
+     * the message.
      */
-    DailyDigest summariseTheDay() {
-        DailyDigest digest = DailyDigest.of(persistence.findNotSentInDigest());
+    private void deliverTheDigest() {
+        List<EmailClassification> waiting = persistence.findNotSentInDigest();
+        DailyDigest digest = DailyDigest.of(waiting);
 
         if (digest.isEmpty()) {
             log.info("digest: nothing waiting to be reported");
-            return digest;
+        } else {
+            log.info("digest: {} classifications from {} to {}, {} urgent, by type {}, platforms {}",
+                    digest.total(), digest.earliest(), digest.latest(), digest.urgent(),
+                    digest.countsByType(), digest.platforms());
         }
 
-        log.info("digest: {} classifications from {} to {}, {} urgent, by type {}, platforms {}",
-                digest.total(), digest.earliest(), digest.latest(), digest.urgent(),
-                digest.countsByType(), digest.platforms());
-        return digest;
+        notification.send(digest);
+
+        if (!waiting.isEmpty()) {
+            persistence.markSentInDigest(
+                    waiting.stream().map(EmailClassification::gmailMessageId).toList(),
+                    clock.instant());
+        }
     }
 }

@@ -17,6 +17,7 @@ import com.nathanpaiva.jobtracker.domain.EmailClassifier;
 import com.nathanpaiva.jobtracker.domain.IncomingEmail;
 import com.nathanpaiva.jobtracker.domain.UpdateType;
 import com.nathanpaiva.jobtracker.ports.EmailSourcePort;
+import com.nathanpaiva.jobtracker.ports.NotificationPort;
 import com.nathanpaiva.jobtracker.ports.PersistencePort;
 import com.nathanpaiva.jobtracker.ports.SpreadsheetPort;
 
@@ -24,7 +25,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * The whole daily run, with the mailbox and the database replaced by two lists.
+ * The whole daily run, with the mailbox, the database, the spreadsheet and WhatsApp
+ * replaced by lists.
  *
  * <p>No Spring, no container, no mocking framework, no credentials — and the run is
  * covered end to end. This is what the ports were for: the use case names only
@@ -41,9 +43,10 @@ class RunDailyScanUseCaseTest {
     private final InMemoryEmailSource mailbox = new InMemoryEmailSource();
     private final InMemoryPersistence database = new InMemoryPersistence();
     private final InMemorySpreadsheet sheet = new InMemorySpreadsheet();
+    private final InMemoryNotification whatsapp = new InMemoryNotification();
 
     private final RunDailyScanUseCase useCase = new RunDailyScanUseCase(
-            mailbox, new EmailClassifier(), database, sheet,
+            mailbox, new EmailClassifier(), database, sheet, whatsapp,
             Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
@@ -222,44 +225,61 @@ class RunDailyScanUseCaseTest {
     }
 
     @Test
-    void summarisesWhatIsWaitingToBeReported() {
+    void sendsWhatIsWaitingToBeReported() {
         mailbox.contains(
                 email("m1", "greenhouse.io", "Recebemos sua candidatura"),
                 email("m2", "gupy.io", "Infelizmente não seguiremos com sua candidatura"));
 
         useCase.run();
 
-        DailyDigest digest = useCase.summariseTheDay();
-
+        assertThat(whatsapp.sent).hasSize(1);
+        DailyDigest digest = whatsapp.sent.get(0);
         assertThat(digest.total()).isEqualTo(2);
         assertThat(digest.countOf(UpdateType.APPLICATION_RECEIVED)).isEqualTo(1);
         assertThat(digest.countOf(UpdateType.REJECTION)).isEqualTo(1);
         assertThat(digest.platforms()).containsExactly("Greenhouse", "Gupy");
     }
 
-    /**
-     * The point of this whole step. Marking means "this was delivered", and a log line
-     * is not a delivery — so the queue has to survive the run untouched, or these rows
-     * would never reach a real message once there is something that sends them.
-     */
+    /** Once delivered, an update leaves the queue: the next digest reports only what is new. */
     @Test
-    void leavesTheDigestQueueUntouched() {
+    void doesNotReportTheSameUpdateTwice() {
         mailbox.contains(email("m1", "greenhouse.io", "Recebemos sua candidatura"));
 
         useCase.run();
         useCase.run();
 
+        assertThat(whatsapp.sent).extracting(DailyDigest::total).containsExactly(1, 0);
+        assertThat(database.digestQueue()).isEmpty();
+    }
+
+    /**
+     * The reason the mark comes after the send. A refused digest leaves the queue as it
+     * was, and the next run's digest carries what the failed one could not.
+     */
+    @Test
+    void marksNothingWhenTheSendFailsAndSendsItOnTheNextRun() {
+        mailbox.contains(email("m1", "greenhouse.io", "Recebemos sua candidatura"));
+        whatsapp.refuses();
+
+        assertThatThrownBy(useCase::run).isInstanceOf(IllegalStateException.class);
         assertThat(database.digestQueue())
                 .extracting(EmailClassification::gmailMessageId)
                 .containsExactly("m1");
-    }
 
-    /** A day with no news still produces a digest, and it says so. */
-    @Test
-    void summarisesAnEmptyDayAsAnEmptyDigest() {
+        whatsapp.refusing = false;
         useCase.run();
 
-        assertThat(useCase.summariseTheDay().isEmpty()).isTrue();
+        assertThat(whatsapp.sent).extracting(DailyDigest::total).containsExactly(1);
+        assertThat(database.digestQueue()).isEmpty();
+    }
+
+    /** A day with no news is still reported, so that silence always means a failure. */
+    @Test
+    void stillSendsADayWithNothingInIt() {
+        useCase.run();
+
+        assertThat(whatsapp.sent).hasSize(1);
+        assertThat(whatsapp.sent.get(0).isEmpty()).isTrue();
     }
 
     /**
@@ -273,8 +293,8 @@ class RunDailyScanUseCaseTest {
                 emailAt("m2", "gupy.io", "Infelizmente não seguiremos", NOW.minus(Duration.ofHours(2))));
 
         useCase.run();
-        DailyDigest digest = useCase.summariseTheDay();
 
+        DailyDigest digest = whatsapp.sent.get(0);
         assertThat(digest.earliest()).isEqualTo(NOW.minus(Duration.ofHours(20)));
         assertThat(digest.latest()).isEqualTo(NOW.minus(Duration.ofHours(2)));
     }
@@ -323,6 +343,25 @@ class RunDailyScanUseCaseTest {
                 throw new IllegalStateException("spreadsheet unreachable");
             }
             rows.addAll(classifications);
+        }
+    }
+
+    /** A WhatsApp that is a list of the digests it accepted, and can be told to refuse. */
+    private static final class InMemoryNotification implements NotificationPort {
+
+        private final List<DailyDigest> sent = new ArrayList<>();
+        private boolean refusing;
+
+        void refuses() {
+            refusing = true;
+        }
+
+        @Override
+        public void send(DailyDigest digest) {
+            if (refusing) {
+                throw new IllegalStateException("WhatsApp refused the digest");
+            }
+            sent.add(digest);
         }
     }
 
