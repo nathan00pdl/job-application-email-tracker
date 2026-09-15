@@ -51,3 +51,14 @@ google:
     spreadsheet-id: ${GOOGLE_SHEETS_SPREADSHEET_ID}
     sheet-name: ${GOOGLE_SHEETS_SHEET_NAME:classifications}
 
+# Where the daily digest goes. The first three have no default either: a deployment
+# missing one fails at startup, not at the end of a run. The recipient is a secret too,
+# because it is a personal phone number.
+whatsapp:
+  access-token: ${WHATSAPP_ACCESS_TOKEN}
+  phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID}
+  recipient: ${WHATSAPP_RECIPIENT}
+  # The Graph API version Meta's own examples use today. Moving to a newer one is a
+  # deliberate change, not something to pick up by accident.
+  api-url: https://graph.facebook.com/v25.0
+

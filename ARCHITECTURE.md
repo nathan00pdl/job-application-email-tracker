@@ -30,14 +30,14 @@ The system is fundamentally an orchestrator around external integrations (Gmail,
   - `EmailSourcePort` — fetch emails received after a given instant (how far back to look is the use case's decision, not the port's)
   - `PersistencePort` — read/write `EmailClassification` records
   - `SpreadsheetPort` — sync records to the dashboard
-  - `NotificationPort` — deliver the daily digest; returning means the channel accepted it _(declared; nothing implements or calls it yet)_
+  - `NotificationPort` — deliver the daily digest; returning means the channel accepted it _(implemented by the WhatsApp adapter; nothing calls it yet)_
 - **`adapters`** — concrete implementations of each port:
   - `adapters/runner` → `DailyScanRunner implements ApplicationRunner` — the driving side:
     the only thing that starts a run today
   - `adapters/gmail` → `GmailApiAdapter implements EmailSourcePort`
   - `adapters/persistence` → `PostgresRepositoryAdapter implements PersistencePort` (Spring Data JPA)
   - `adapters/sheets` → `GoogleSheetsAdapter implements SpreadsheetPort`
-  - `adapters/whatsapp` → `DigestMessage` fills the approved template's blanks from a digest; `MetaWhatsAppAdapter implements NotificationPort` _(not built yet)_
+  - `adapters/whatsapp` → `MetaWhatsAppAdapter implements NotificationPort`, sending the approved template through Meta's Cloud API; `DigestMessage` fills its blanks from a digest _(built; the daily run does not call it yet)_
 
 Swapping an integration (e.g. WhatsApp provider, database host) means writing a new adapter — the domain and application layers are untouched. This also makes the domain trivially testable without mocking frameworks, since it only depends on interfaces.
 
@@ -133,7 +133,7 @@ A separate, distinct template is used for the job-failure alert described in the
 ## Security posture
 
 - **Secrets:** OAuth tokens, service account credentials, the Neon connection string, and the WhatsApp access token are never committed. They live in GitHub Secrets and are injected as environment variables at runtime. GitHub Secret Scanning + push protection is enabled on the repository.
-- **Least privilege:** Gmail access is `gmail.readonly` only; the Sheets service account is shared with a single specific spreadsheet, not the whole Drive. The application connects to Neon as `jobtracker`, a role created with SQL for this purpose, rather than as `neondb_owner`, the role Neon creates with the project, which belongs to `neon_superuser`. `jobtracker` can log in and use and create tables in the `public` schema — `CREATE` is needed because Flyway runs with the application's own credentials — and nothing else: it cannot create roles or databases.
+- **Least privilege:** Gmail access is `gmail.readonly` only; the Sheets service account is shared with a single specific spreadsheet, not the whole Drive. The application connects to Neon as `jobtracker`, a role created with SQL for this purpose, rather than as `neondb_owner`, the role Neon creates with the project, which belongs to `neon_superuser`. `jobtracker` can log in and use and create tables in the `public` schema — `CREATE` is needed because Flyway runs with the application's own credentials — and nothing else: it cannot create roles or databases. The WhatsApp token belongs to a system user with the Employee role, which sees only the test WhatsApp account and holds only `whatsapp_business_messaging`: it can send messages, and nothing else.
 - **SQL injection:** all persistence goes through Spring Data JPA / parameterized queries; no manual string concatenation into SQL.
 - **Dependency vulnerabilities:** Dependabot is enabled on the repository, with its alerts and
   automatic fixes turned on. On every pull request, `dependency-review.yml` inspects the

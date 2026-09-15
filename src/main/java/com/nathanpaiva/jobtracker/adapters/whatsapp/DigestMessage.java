@@ -42,6 +42,13 @@ import com.nathanpaiva.jobtracker.domain.UpdateType;
 final class DigestMessage {
 
     /**
+     * The template's name and language, as registered with Meta. Both are part of what was
+     * approved: another name or another language is another template.
+     */
+    static final String TEMPLATE = "resumo_diario";
+    static final String LANGUAGE = "pt_BR";
+
+    /**
      * The reader is in Brazil, so the dates are the reader's dates, in the same zone the
      * spreadsheet writes in. In UTC, an email that arrived at half past nine at night
      * would already belong to the next day.
