@@ -26,7 +26,8 @@ import tools.jackson.databind.json.JsonMapper;
  * Sends the daily digest as a WhatsApp template, through Meta's Cloud API.
  *
  * <p>One request per digest: a POST to {@code /{phone-number-id}/messages} naming the
- * approved template and carrying the five values {@link DigestMessage} fills. Meta answers
+ * approved template {@link DigestMessage} chooses — one for a day with news, another for a
+ * day without — and carrying the values it fills. Meta answers
  * with a 2xx when it accepts the message, and that is all this class waits for. Whether
  * the message reached the phone is reported later, through a webhook this project does not
  * run.
@@ -67,14 +68,14 @@ class MetaWhatsAppAdapter implements NotificationPort {
 
     @Override
     public void send(DailyDigest digest) {
-        List<String> values = DigestMessage.templateValues(digest, clock.instant());
+        DigestMessage.Template template = DigestMessage.forDigest(digest, clock.instant());
 
         HttpRequest request = HttpRequest.newBuilder(messagesEndpoint)
                 .timeout(ANSWER_TIMEOUT)
                 .header("Authorization", "Bearer " + accessToken)
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(
-                        JSON.writeValueAsString(templateMessage(values))))
+                        JSON.writeValueAsString(templateMessage(template))))
                 .build();
 
         HttpResponse<String> response;
@@ -101,17 +102,17 @@ class MetaWhatsAppAdapter implements NotificationPort {
      * The body Meta expects for a template: who receives it, the template's name and
      * language, and the values of its body, in the order of its blanks.
      */
-    private Map<String, Object> templateMessage(List<String> values) {
+    private Map<String, Object> templateMessage(DigestMessage.Template template) {
         return Map.of(
                 "messaging_product", "whatsapp",
                 "to", recipient,
                 "type", "template",
                 "template", Map.of(
-                        "name", DigestMessage.TEMPLATE,
+                        "name", template.name(),
                         "language", Map.of("code", DigestMessage.LANGUAGE),
                         "components", List.of(Map.of(
                                 "type", "body",
-                                "parameters", values.stream()
+                                "parameters", template.values().stream()
                                         .map(value -> Map.of("type", "text", "text", value))
                                         .toList()))));
     }

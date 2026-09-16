@@ -110,7 +110,23 @@ class MetaWhatsAppAdapterTest {
         List<String> values = new ArrayList<>();
         body.at("/template/components/0/parameters")
                 .forEach(parameter -> values.add(parameter.path("text").asString()));
-        assertThat(values).containsExactlyElementsOf(DigestMessage.templateValues(digest(), SENT_AT));
+        assertThat(values).containsExactlyElementsOf(
+                DigestMessage.forDigest(digest(), SENT_AT).values());
+    }
+
+    /** A day with no news goes out through its own template, with the date as its one value. */
+    @Test
+    void sendsTheEmptyTemplateOnADayWithNoNews() {
+        adapter().send(DailyDigest.empty());
+
+        JsonNode body = JSON.readTree(received.get().body());
+        assertThat(body.at("/template/name").asString()).isEqualTo("resumo_diario_vazio");
+        assertThat(body.at("/template/language/code").asString()).isEqualTo("pt_BR");
+
+        List<String> values = new ArrayList<>();
+        body.at("/template/components/0/parameters")
+                .forEach(parameter -> values.add(parameter.path("text").asString()));
+        assertThat(values).containsExactly("15/09");
     }
 
     /** A number pasted the way the Meta panel shows it still goes out as digits. */
