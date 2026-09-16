@@ -97,8 +97,8 @@ final class GmailMessageMapper {
      * Finds the readable text of the message.
      *
      * <p>A plain text part is preferred wherever it sits in the tree. Only when there is
-     * none does the HTML part get used, with its tags stripped: sending raw HTML to the
-     * classifier would spend tokens on markup and teach it nothing.
+     * none does the HTML part get used, with its tags stripped: the classifier looks for
+     * sentences, and raw markup breaks them apart with tags and attributes.
      */
     private static String bodyTextOf(MessagePart payload) {
         return firstPartOfType(payload, "text/plain")

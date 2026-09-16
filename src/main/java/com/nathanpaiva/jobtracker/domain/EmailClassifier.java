@@ -51,15 +51,6 @@ public final class EmailClassifier {
             Map.entry("inhire.app", "inHire"));
 
     /**
-     * Job boards: sites where openings are advertised.
-     *
-     * <p>Their name is worth recording when an email does come from one, but their
-     * presence proves nothing. They send job alerts, newsletters and social
-     * notifications to everyone, most of it to people who have applied for nothing —
-     * which is exactly how a LinkedIn message about post impressions was once stored as
-     * a job application.
-     */
-    /**
      * Addresses that belong to a system this project trusts, but carry its marketing
      * rather than news about an application.
      *
@@ -74,6 +65,15 @@ public final class EmailClassifier {
      */
     private static final Set<String> MARKETING_ADDRESSES = Set.of("inbound.gupy.com.br");
 
+    /**
+     * Job boards: sites where openings are advertised.
+     *
+     * <p>Their name is worth recording when an email does come from one, but their
+     * presence proves nothing. They send job alerts, newsletters and social
+     * notifications to everyone, most of it to people who have applied for nothing —
+     * which is exactly how a LinkedIn message about post impressions was once stored as
+     * a job application.
+     */
     private static final Map<String, String> JOB_BOARD_BY_DOMAIN = Map.ofEntries(
             Map.entry("linkedin.com", "LinkedIn"), Map.entry("indeed.com", "Indeed"),
             Map.entry("glassdoor.com", "Glassdoor"), Map.entry("vagas.com.br", "Vagas.com"),
