@@ -1,6 +1,8 @@
 # job-application-email-tracker
 
-A daily job that scans a Gmail inbox for emails about job applications, classifies them with a set of rules that runs locally, saves the results in PostgreSQL, copies them into a Google Sheet, and sends a daily summary over WhatsApp.
+A daily job that scans a Gmail inbox for emails about job applications, classifies them with rules written into its own code, saves the results in PostgreSQL, copies them into a Google Sheet, and sends a daily summary over WhatsApp.
+
+It runs on GitHub Actions, with no server of its own. In production the database is on Neon, a hosted PostgreSQL on a free plan; for development, the same schema runs in a Docker container on your machine. Every service it uses is free.
 
 See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full design.
 
@@ -8,19 +10,22 @@ See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full design.
 
 ![Hexagonal architecture: the domain and the use case inside the hexagon, four ports on its edges, the adapters that implement them outside, and the systems they talk to.](docs/architecture.svg)
 
-The four dashed arrows are the point. They run from the adapters **into** the ports:
-the interfaces are declared on the inside, in the language of the problem, and the code
-that talks to Gmail, PostgreSQL, Google Sheets and WhatsApp adapts itself to them. Nothing in
-`domain` or `application` names a vendor, which is why the whole daily run can be tested
-against lists in memory.
+The four dashed arrows are what matters most in this diagram. Each one starts at an
+adapter and ends at a port: the interfaces are declared on the inside, in the language of
+the problem, and the code that talks to Gmail, PostgreSQL, Google Sheets and WhatsApp
+adapts itself to them. Nothing in `domain` or `application` names a vendor, which is why
+the whole daily run can be tested against lists in memory.
 
-The dashed slot on the top edge is there on purpose: this project has no driving port yet.
-`DailyScanRunner` calls `RunDailyScanUseCase` directly, because there is only one way to
-start the application — a run of the job, whether scheduled or started by hand. An HTTP
-endpoint or a CLI command is what would turn that slot into an interface.
+The empty dashed box on the top edge marks a port this project does not have. There are
+two kinds of port: *driven* ports, which the application calls to reach the outside
+world — the four above — and *driving* ports, which the outside world calls to start the
+application. There is no driving port here: `DailyScanRunner` calls `RunDailyScanUseCase`
+directly, because the only way in is running the job, on its schedule or by hand. A second
+way in, such as an HTTP endpoint or a command-line command, is what would make an
+interface worth having.
 
-`PipelineConfiguration` sits outside the hexagon because it is the wiring: it builds the
-objects and connects them, which is what lets `domain` and `application` carry no
+`PipelineConfiguration` sits outside the hexagon because its only job is to build the
+objects and connect them, which is what lets `domain` and `application` carry no
 framework annotation at all.
 
 `application` holds the order of the steps and no business rules; `domain` holds the
@@ -31,7 +36,7 @@ rules and knows nothing about order, storage or the network.
 - Java 25
 - Docker (for the local PostgreSQL instance, and for Testcontainers during the build)
 
-Maven itself is not needed: `./mvnw` downloads and runs the pinned version.
+Maven itself is not needed: `./mvnw` downloads and runs the exact version set in the repository.
 
 ## Local setup
 
@@ -66,7 +71,7 @@ unrelated mail never reaches the database.
 ```
 
 `./mvnw` is the Maven wrapper: a script kept in the repository that downloads and runs
-the exact Maven version pinned in `.mvn/wrapper/maven-wrapper.properties`. You do not
+the exact Maven version set in `.mvn/wrapper/maven-wrapper.properties`. You do not
 need Maven installed, and this machine, anyone else's and CI all build with the same
 version. The leading `./` matters — it means the script in this directory, not a command
 on your `PATH`.
@@ -110,7 +115,7 @@ To start it without scanning, set `RUN_ON_STARTUP=false`.
 `.github/workflows/daily-run.yml` runs the scan every day at 03:17 in São Paulo (06:17 UTC),
 against a PostgreSQL database hosted on Neon rather than the local container. The hour is
 early on purpose: GitHub starts scheduled runs late, sometimes by hours, and the digest
-should be on the phone by 06:00. The run reads its configuration from these repository
+should reach the phone by 06:00. The run reads its configuration from these repository
 secrets:
 
 `DATASOURCE_URL` · `DATASOURCE_USERNAME` · `DATASOURCE_PASSWORD` ·
@@ -122,7 +127,7 @@ The local `.env` keeps pointing at the local container, so a run started by hand
 writes to the real database.
 
 **When a run fails**, a second job opens an issue labelled `daily-run-failure` and mentions
-you in it, so GitHub notifies you. The title names the cause when the run can tell it — an
+you in it, so GitHub notifies you. The title names the cause when the run can identify it — an
 expired Gmail token, or WhatsApp refusing the token, access to the test number, or a
 template that is not active yet — and the body links to the run and says what to do. While
 that issue is open, later failures become comments on it rather than new issues. It
@@ -192,10 +197,10 @@ Plataformas de origem: {{5}}.
 Os detalhes de cada e-mail estão na planilha de acompanhamento.
 ```
 
-What goes out is counted, never quoted: numbers, dates and platform names, with no
-subject and no sender. The classifications it covers are marked as reported only after
-Meta accepts the message, so a delivery that fails leaves them for the next run, and the
-period in the message stretches to show the gap.
+The message holds only counts, dates and platform names — never a subject or a sender.
+The classifications it covers are marked as reported only after Meta accepts the message,
+so a delivery that fails leaves them for the next run, and the period in the message
+grows to cover the days that were missed.
 
 Setting it up, once, on Meta's side:
 
@@ -226,8 +231,8 @@ set -a && source .env && set +a
 ```
 
 **The classifier.** Runs the rules over real mail and prints what they kept, so a person
-can judge what no invented test case can: whether the rules still match reality. Worth
-running after any change to the classifier.
+can check what an invented test case cannot: whether the rules still match real emails.
+Run it after any change to the classifier.
 
 ```bash
 set -a && source .env && set +a
