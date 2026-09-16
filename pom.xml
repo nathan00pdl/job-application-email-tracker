@@ -76,8 +76,8 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Google's generated client for the Gmail API. This PR only uses its model
-             classes (Message, MessagePart); the calls themselves come with the adapter. -->
+        <!-- Google's generated client for the Gmail API: the model classes the mapper
+             reads (Message, MessagePart), and the calls the adapter makes. -->
         <dependency>
             <groupId>com.google.apis</groupId>
             <artifactId>google-api-services-gmail</artifactId>

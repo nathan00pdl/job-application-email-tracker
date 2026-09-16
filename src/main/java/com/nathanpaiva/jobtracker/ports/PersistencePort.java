@@ -15,9 +15,10 @@ import com.nathanpaiva.jobtracker.domain.EmailClassification;
  * that the answer comes from PostgreSQL. Swapping the store means writing another
  * adapter; nothing in the domain or the application changes.
  *
- * <p>It stays this small on purpose. Reading the rows that still have to be copied to
- * the spreadsheet is real, but it belongs to the step that builds the spreadsheet sync,
- * not here. A port that grows ahead of its callers becomes a list of guesses.
+ * <p>It grew one method at a time, each arriving with the step that needed it: the
+ * spreadsheet queue with the sync, the digest queue with the daily summary, and the scan
+ * mark with the window that closes its own gaps. Nothing here was written ahead of a
+ * caller, which is why every method still has exactly one.
  */
 public interface PersistencePort {
 

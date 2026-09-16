@@ -5,8 +5,9 @@ package com.nathanpaiva.jobtracker.domain;
  *
  * <p>This says what the email <em>is</em>, not what stage the application is in.
  * "We would like to interview you" is an {@link #INTERVIEW_INVITE} whether it is the
- * first interview or the third. The stage of a process comes from the sequence of
- * emails over time, and is tracked separately.
+ * first interview or the third. Knowing the stage would mean following the emails about
+ * one application over time, and nothing here does that: each email is classified on its
+ * own.
  *
  * <p>The database column is a {@code VARCHAR}, not a native enum, so adding a new
  * category never needs a migration. The cost is that the list of allowed values is
