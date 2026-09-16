@@ -27,5 +27,13 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    # The CodeQL action is used in three parts — init, analyze and upload-sarif — and
+    # Dependabot sees each as its own dependency. Bumped one pull request at a time, init
+    # and analyze end up on different versions inside the same job, and analyze refuses
+    # the configuration init wrote. Grouped, they always move together.
+    groups:
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
     commit-message:
       prefix: ci
