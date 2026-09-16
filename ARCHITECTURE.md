@@ -43,9 +43,8 @@ Swapping an integration (e.g. WhatsApp provider, database host) means writing a 
 
 ## Daily pipeline
 
-Steps marked _(not built yet)_ describe the intended design; the rest runs every day. A run
-can also be started by hand, locally with `./mvnw spring-boot:run` or on GitHub from the
-Actions tab.
+Every step below runs every day. A run can also be started by hand, locally with
+`./mvnw spring-boot:run` or on GitHub from the Actions tab.
 
 1. GitHub Actions triggers `daily-run.yml` on a daily cron schedule; a fresh Ubuntu runner is provisioned.
 2. Secrets are injected as environment variables from GitHub Secrets — locally they come from `.env`.
@@ -55,7 +54,7 @@ Actions tab.
 6. Classifications are persisted in Postgres, the source of truth.
 7. New/unsynced records (`sheet_synced_at IS NULL`) are written to the Google Sheet.
 8. Everything not yet delivered (`digest_sent_at IS NULL`) is added up into a `DailyDigest` and sent as a WhatsApp template — every day, even when there is nothing new. The rows are marked as delivered only after Meta accepts the message, so a failed send leaves them for the next run's digest.
-9. If any external service is unreachable and prevents completion (not a per-email classification failure), the job fails visibly: the run is marked as failed in the Actions tab, and a second job opens a GitHub issue — or comments on the one already open — naming the cause when the run can tell it: an expired Gmail token, or one of the WhatsApp refusals the adapter reports — the token, access to the test number, or a template that is not active. A WhatsApp alert, using a distinct message template, is _(not built yet)_.
+9. If any external service is unreachable and prevents completion (not a per-email classification failure), the job fails visibly: the run is marked as failed in the Actions tab, and a second job opens a GitHub issue — or comments on the one already open — naming the cause when the run can tell it: an expired Gmail token, or one of the WhatsApp refusals the adapter reports — the token, access to the test number, or a template that is not active.
 10. The runner is destroyed. Nothing stays running between executions.
 
 Per-item failures (a single email failing classification) are caught and logged individually; they do not abort processing of the remaining emails in that run. Failures connecting to a whole service (e.g. Postgres unreachable) abort the run, since nothing can be persisted.
@@ -122,13 +121,9 @@ CREATE INDEX idx_scan_runs_completed_at ON scan_runs (completed_at DESC);
 
 Uses the official Meta WhatsApp Cloud API (chosen over Twilio: one fewer intermediary, no ongoing per-message cost within the free test-number tier, and a more direct integration to demonstrate). Because the daily message is business-initiated (not a reply to a user message), it must be sent via a pre-approved Message Template with dynamic variables.
 
-**v1 (current scope):** plain-text summary filled into the template from the `DailyDigest` each run already builds and logs: how many updates, how many of each kind, how many are urgent, which platforms they came from, and the period they cover. It names no company, because the classifier does not read one out of the email yet. No hosting dependency required.
+The message is a plain-text summary filled into the template from the `DailyDigest` each run already builds and logs: how many updates, how many of each kind, how many are urgent, which platforms they came from, and the period they cover. It names no company, because the classifier does not read one out of the email, and it needs no hosting of its own.
 
 The template is `resumo_diario`, in pt-BR, with five blanks: the period, the total, how many are urgent, the counts by kind as one line (*"1 entrevista, 2 recusas"*), and the platforms. `DigestMessage` fills them. The counts by kind share a single blank because Meta allows only so many blanks for the length of a template's text, and a value cannot hold a line break.
-
-**v2 (planned follow-up):** the template's call-to-action button links to a hosted HTML report for a richer view. Deferred because it requires an additional piece of infrastructure (static file hosting with a non-guessable/private URL) not needed for v1.
-
-A separate, distinct template is used for the job-failure alert described in the pipeline steps above.
 
 ## Security posture
 
