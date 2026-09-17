@@ -8,7 +8,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.HttpBackOffIOExceptionHandler;
 import com.google.api.client.http.HttpBackOffUnsuccessfulResponseHandler;
+import com.google.api.client.http.HttpIOExceptionHandler;
 import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.http.HttpUnsuccessfulResponseHandler;
 import com.google.api.client.json.gson.GsonFactory;
@@ -83,6 +85,16 @@ class GmailClientConfiguration {
      * else — a scope that was never granted — costs a couple of minutes of retries before
      * failing, which is a fair price for not dying on the failure that actually happens.
      *
+     * <p><b>A connection that times out is waited out too.</b> One read in a few hundred
+     * can stall, and a single slow answer from Google ended a ninety-day read of the
+     * mailbox with {@code SocketTimeoutException: Read timed out}. Every call this client
+     * makes is a read, so asking again cannot do anything twice.
+     *
+     * <p>That retry covers the network call and nothing before it. The credential is
+     * refreshed by an interceptor that runs earlier, outside the part of the request the
+     * library retries on an {@code IOException} — so an expired refresh token still fails
+     * at once, rather than after two minutes of pointless waiting.
+     *
      * <p>The retrying itself is the library's, not ours: {@link ExponentialBackOff}
      * already handles the growing pauses and the randomisation that keeps repeated
      * clients from retrying in step.
@@ -100,11 +112,7 @@ class GmailClientConfiguration {
                     request.getUnsuccessfulResponseHandler();
 
             HttpBackOffUnsuccessfulResponseHandler backOff =
-                    new HttpBackOffUnsuccessfulResponseHandler(
-                            new ExponentialBackOff.Builder()
-                                    .setInitialIntervalMillis(FIRST_PAUSE_MILLIS)
-                                    .setMaxElapsedTimeMillis(GIVE_UP_AFTER_MILLIS)
-                                    .build())
+                    new HttpBackOffUnsuccessfulResponseHandler(backOff())
                             .setBackOffRequired(response -> {
                                 int status = response.getStatusCode();
                                 return status == 403 || status == 429 || status / 100 == 5;
@@ -114,6 +122,23 @@ class GmailClientConfiguration {
                     (credentialHandler != null
                             && credentialHandler.handleResponse(req, response, supportsRetry))
                             || backOff.handleResponse(req, response, supportsRetry));
+
+            // Composed like the handler above, in case the delegate ever installs its own.
+            HttpIOExceptionHandler earlierIoHandler = request.getIOExceptionHandler();
+            HttpBackOffIOExceptionHandler ioBackOff = new HttpBackOffIOExceptionHandler(backOff());
+
+            request.setIOExceptionHandler((req, supportsRetry) ->
+                    (earlierIoHandler != null
+                            && earlierIoHandler.handleIOException(req, supportsRetry))
+                            || ioBackOff.handleIOException(req, supportsRetry));
         };
+    }
+
+    /** A fresh schedule of pauses: each handler needs its own, since it keeps count. */
+    private static ExponentialBackOff backOff() {
+        return new ExponentialBackOff.Builder()
+                .setInitialIntervalMillis(FIRST_PAUSE_MILLIS)
+                .setMaxElapsedTimeMillis(GIVE_UP_AFTER_MILLIS)
+                .build();
     }
 }
