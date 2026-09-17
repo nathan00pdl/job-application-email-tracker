@@ -14,7 +14,7 @@ With your permission, the app reads messages from your own Gmail mailbox using t
 other Google permission.
 
 Each run looks only at messages received since the previous run finished reading, with an
-hour of overlap. After a gap — a run that failed, or a day the app did not run — the next
+hour of overlap. Messages you sent yourself are left out. After a gap — a run that failed, or a day the app did not run — the next
 run reads the whole gap, so that no message is skipped. The very first run looks back 26
 hours.
 

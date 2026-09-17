@@ -108,6 +108,11 @@ class GmailApiAdapter implements EmailSourcePort {
      * Gmail accepts the same search syntax as the web interface, and {@code after:}
      * takes a Unix timestamp in seconds. Spam and trash are excluded by default.
      *
+     * <p>Sent mail is not, and is excluded here. A reply to a company usually quotes the
+     * message it answers, so a reply to "recebemos sua candidatura" carries that phrase,
+     * and a reply to an interview invitation carries the invitation. Read as incoming, each
+     * would be stored as news the company sent — news that was really the author's own.
+     *
      * <p>The loop is not optional. A page holds around a hundred ids, and without
      * following {@code nextPageToken} a busy day would silently lose whatever did not
      * fit on the first page — the kind of bug that only appears once it matters.
@@ -118,7 +123,7 @@ class GmailApiAdapter implements EmailSourcePort {
         do {
             ListMessagesResponse response = gmail.users().messages()
                     .list(AUTHENTICATED_USER)
-                    .setQ("after:" + since.getEpochSecond())
+                    .setQ("after:" + since.getEpochSecond() + " -in:sent")
                     .setPageToken(pageToken)
                     .execute();
 
