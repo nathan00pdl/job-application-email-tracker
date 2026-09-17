@@ -76,22 +76,79 @@ class GmailMessageMapperTest {
                 .isEqualTo("texto no fundo da árvore");
     }
 
-    /**
-     * Note what survives in the expected value: {@code &aacute;} and {@code &eacute;} are
-     * left as written. The stripper only undoes the handful of entities that show up in
-     * practice, and this test pins that limit down rather than hiding it. The output is
-     * read by the classifier, which understands the words either way.
-     */
     @Test
     void fallsBackToTheHtmlPartWithTagsRemoved() {
         Message message = message(multipart("multipart/alternative",
                 part("text/html",
                         "<html><style>p{color:red}</style><body><p>Ol&aacute;</p>"
-                                + "<p>Voc&#39;&nbsp;foi <b>aprovado</b> &amp; parab&eacute;ns</p>"
+                                + "<p>Voc&ecirc;&nbsp;foi <b>aprovado</b> &amp; parab&eacute;ns</p>"
                                 + "<script>track()</script></body></html>")));
 
         assertThat(GmailMessageMapper.toIncomingEmail(message).body())
-                .isEqualTo("Ol&aacute; Voc' foi aprovado & parab&eacute;ns");
+                .isEqualTo("Olá Você foi aprovado & parabéns");
+    }
+
+    /**
+     * Word for word from a real rejection, sent only as HTML. With the accents left as
+     * codes, "não seguiremos" never matched, and the email was read as a confirmation.
+     */
+    @Test
+    void decodesTheAccentsOfARealHtmlOnlyEmail() {
+        Message message = message(part("text/html",
+                "<p>Ap&oacute;s uma avalia&ccedil;&atilde;o detalhada, lamentamos informar que, "
+                        + "neste momento, n&atilde;o seguiremos com a sua candidatura para a "
+                        + "pr&oacute;xima etapa.</p>"));
+
+        assertThat(GmailMessageMapper.toIncomingEmail(message).body())
+                .isEqualTo("Após uma avaliação detalhada, lamentamos informar que, neste "
+                        + "momento, não seguiremos com a sua candidatura para a próxima etapa.");
+    }
+
+    @ParameterizedTest(name = "{0} -> {1}")
+    @CsvSource(delimiter = '|', value = {
+            "<p>n&#227;o</p>          | não",
+            "<p>n&#xE3;o</p>          | não",
+            "<p>N&Atilde;O</p>        | NÃO",
+            "<p>1&ordm; lugar</p>     | 1º lugar",
+            "<p>R&amp;D</p>           | R&D"
+    })
+    void decodesNamedAndNumberedCodes(String html, String expected) {
+        assertThat(GmailMessageMapper.toIncomingEmail(message(part("text/html", html))).body())
+                .isEqualTo(expected);
+    }
+
+    /**
+     * Every code is decoded once. An author who wrote the text "&atilde;" sent it as
+     * "&amp;atilde;", and gets back what they wrote — not a letter they never typed.
+     */
+    @Test
+    void decodesEachCodeOnlyOnce() {
+        Message message = message(part("text/html", "<p>escreva &amp;atilde; para &atilde;</p>"));
+
+        assertThat(GmailMessageMapper.toIncomingEmail(message).body())
+                .isEqualTo("escreva &atilde; para ã");
+    }
+
+    /**
+     * What is not a known code stays exactly as written, including a bare ampersand and a
+     * number that names no character.
+     */
+    @Test
+    void leavesWhatItDoesNotRecogniseAsWritten() {
+        Message message = message(part("text/html",
+                "<p>Tom &amp; Jerry &notacode; A & B &#99999999; &#x110000;</p>"));
+
+        assertThat(GmailMessageMapper.toIncomingEmail(message).body())
+                .isEqualTo("Tom & Jerry &notacode; A & B &#99999999; &#x110000;");
+    }
+
+    /** A space written as {@code &#160;} is still a space between two words. */
+    @Test
+    void treatsANumberedNonBreakingSpaceAsASpace() {
+        Message message = message(part("text/html", "<p>n&atilde;o&#160;seguiremos</p>"));
+
+        assertThat(GmailMessageMapper.toIncomingEmail(message).body())
+                .isEqualTo("não seguiremos");
     }
 
     @ParameterizedTest

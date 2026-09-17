@@ -4,7 +4,10 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.google.api.services.gmail.model.Message;
 import com.google.api.services.gmail.model.MessagePart;
@@ -23,6 +26,40 @@ import com.nathanpaiva.jobtracker.domain.IncomingEmail;
  * building a {@code Message} by hand, with no credentials and no calls to Google.
  */
 final class GmailMessageMapper {
+
+    /**
+     * A character written as a code: {@code &atilde;}, {@code &#227;} or {@code &#xE3;}.
+     * The lengths are bounded so a stray ampersand in ordinary text is never read as the
+     * start of one.
+     */
+    private static final Pattern ENTITY =
+            Pattern.compile("&(#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[a-zA-Z]{2,8});");
+
+    /**
+     * The named codes these emails actually use: markup's own five, every accented letter
+     * Portuguese writes, and the punctuation that templates reach for. It is not HTML's
+     * full list of more than two thousand, and does not need to be — a name missing here
+     * is left as written, and a new one is a line to add when a real email shows it.
+     */
+    private static final Map<String, String> NAMED_ENTITIES = Map.ofEntries(
+            Map.entry("amp", "&"), Map.entry("lt", "<"), Map.entry("gt", ">"),
+            Map.entry("quot", "\""), Map.entry("apos", "'"), Map.entry("nbsp", " "),
+            Map.entry("aacute", "á"), Map.entry("agrave", "à"), Map.entry("acirc", "â"),
+            Map.entry("atilde", "ã"), Map.entry("eacute", "é"), Map.entry("ecirc", "ê"),
+            Map.entry("iacute", "í"), Map.entry("oacute", "ó"), Map.entry("ocirc", "ô"),
+            Map.entry("otilde", "õ"), Map.entry("uacute", "ú"), Map.entry("uuml", "ü"),
+            Map.entry("ccedil", "ç"),
+            Map.entry("Aacute", "Á"), Map.entry("Agrave", "À"), Map.entry("Acirc", "Â"),
+            Map.entry("Atilde", "Ã"), Map.entry("Eacute", "É"), Map.entry("Ecirc", "Ê"),
+            Map.entry("Iacute", "Í"), Map.entry("Oacute", "Ó"), Map.entry("Ocirc", "Ô"),
+            Map.entry("Otilde", "Õ"), Map.entry("Uacute", "Ú"), Map.entry("Uuml", "Ü"),
+            Map.entry("Ccedil", "Ç"),
+            Map.entry("ordm", "º"), Map.entry("ordf", "ª"), Map.entry("deg", "°"),
+            Map.entry("ndash", "–"), Map.entry("mdash", "—"), Map.entry("hellip", "…"),
+            Map.entry("lsquo", "‘"), Map.entry("rsquo", "’"), Map.entry("ldquo", "“"),
+            Map.entry("rdquo", "”"), Map.entry("laquo", "«"), Map.entry("raquo", "»"),
+            Map.entry("bull", "•"), Map.entry("middot", "·"), Map.entry("copy", "©"),
+            Map.entry("reg", "®"), Map.entry("trade", "™"), Map.entry("euro", "€"));
 
     private GmailMessageMapper() {
     }
@@ -156,22 +193,45 @@ final class GmailMessageMapper {
 
     /**
      * A deliberately blunt HTML to text conversion: drop script and style blocks, drop
-     * every tag, undo the few entities that actually show up, and collapse whitespace.
+     * every tag, turn character codes back into characters, and collapse whitespace.
      *
-     * <p>It is not a parser and does not try to be one. The output is only ever read by
-     * the classifier, which needs the words and not the structure, so the cost of being
-     * wrong here is low.
+     * <p>It is not a parser and does not try to be one. The classifier needs the words and
+     * not the structure — but it needs the words exactly, because it matches phrases.
+     * An email sent only as HTML often writes every accent as a code, and "n&amp;atilde;o
+     * seguiremos" is not "não seguiremos" to a comparison of strings: a rejection from a
+     * real mailbox was read as a confirmation for that reason alone.
      */
     private static String stripHtml(String html) {
         String withoutScripts = html.replaceAll("(?is)<(script|style)[^>]*>.*?</\\1>", " ");
         String withoutTags = withoutScripts.replaceAll("(?s)<[^>]+>", " ");
-        String unescaped = withoutTags
-                .replace("&nbsp;", " ")
-                .replace("&lt;", "<")
-                .replace("&gt;", ">")
-                .replace("&quot;", "\"")
-                .replace("&#39;", "'")
-                .replace("&amp;", "&");
-        return unescaped.replaceAll("\\s+", " ").trim();
+        return decodeEntities(withoutTags)
+                .replace(' ', ' ')
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    /**
+     * One pass over the text, so every code is decoded exactly once: {@code &amp;atilde;}
+     * becomes the literal text {@code &atilde;}, as its author wrote, and not {@code ã}.
+     * Replacing the codes one name at a time, with {@code &amp;} anywhere but last, would
+     * decode that twice.
+     *
+     * <p>The JDK has no HTML decoder. Spring's lives in its web module, which this
+     * application does not use, and a library for this would be a new dependency to cover
+     * a table and a regular expression.
+     */
+    private static String decodeEntities(String text) {
+        return ENTITY.matcher(text).replaceAll(match -> {
+            String code = match.group(1);
+            String decoded = code.charAt(0) == '#' ? fromCodePoint(code) : NAMED_ENTITIES.get(code);
+            return Matcher.quoteReplacement(decoded != null ? decoded : match.group());
+        });
+    }
+
+    /** {@code #227} or {@code #xE3}; null when the number names no character. */
+    private static String fromCodePoint(String code) {
+        boolean hex = code.charAt(1) == 'x' || code.charAt(1) == 'X';
+        int codePoint = Integer.parseInt(code.substring(hex ? 2 : 1), hex ? 16 : 10);
+        return Character.isValidCodePoint(codePoint) ? Character.toString(codePoint) : null;
     }
 }
