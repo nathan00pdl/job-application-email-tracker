@@ -41,7 +41,6 @@ class GoogleSheetsAdapterTest {
                 "Backend Engineer", UpdateType.INTERVIEW_INVITE, "Entrevista terça", true)));
 
         assertThat(lastBody.get())
-                .contains("gmail-id-1")
                 .contains("03-09-2026 10:45")
                 .contains("greenhouse.io")
                 .contains("Greenhouse")
@@ -50,6 +49,18 @@ class GoogleSheetsAdapterTest {
                 .contains("INTERVIEW_INVITE")
                 .contains("yes")
                 .contains("Entrevista terça");
+    }
+
+    /**
+     * The first cell leads to the email itself: from any row, one click opens the message,
+     * and the id is still there at the end of the address.
+     */
+    @Test
+    void startsEachRowWithALinkToTheEmail() {
+        adapter("classifications").append(List.of(classification()));
+
+        assertThat(lastBody.get()).contains(
+                "\"values\":[[\"https://mail.google.com/mail/u/0/#all/gmail-id\",");
     }
 
     /** The API refuses a null inside a row, so an unknown value becomes an empty cell. */

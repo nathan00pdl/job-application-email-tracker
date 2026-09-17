@@ -45,6 +45,15 @@ class GoogleSheetsAdapter implements SpreadsheetPort {
     private static final DateTimeFormatter RECEIVED_ON =
             DateTimeFormatter.ofPattern("dd-MM-uuuu HH:mm").withZone(READER_ZONE);
 
+    /**
+     * Opens one message in Gmail on the web, for the account signed in first.
+     *
+     * <p>The same address the WhatsApp digest links to, written out here as well rather
+     * than shared: one adapter reaching into another's package to borrow a string would
+     * tie two integrations together over a line that has not changed in years.
+     */
+    private static final String GMAIL_MESSAGE = "https://mail.google.com/mail/u/0/#all/";
+
     private final Sheets sheets;
     private final String spreadsheetId;
     private final String range;
@@ -83,12 +92,17 @@ class GoogleSheetsAdapter implements SpreadsheetPort {
     }
 
     /**
-     * The Gmail id comes first so a row can always be traced back to the email it came
-     * from, and so a duplicate is recognisable at a glance.
+     * The link to the email comes first, so a row leads straight to the message it came
+     * from, and a duplicate is recognisable at a glance. The Gmail id is the end of the
+     * link, so nothing the id column used to hold is lost.
+     *
+     * <p>It is written as plain text, like everything else here. A {@code HYPERLINK}
+     * formula would need {@code USER_ENTERED}, the input option that also turns a subject
+     * opening with "=" into a formula; the sheet shows a plain address as a link anyway.
      */
     private static List<Object> asRow(EmailClassification classification) {
         return List.of(
-                classification.gmailMessageId(),
+                GMAIL_MESSAGE + classification.gmailMessageId(),
                 RECEIVED_ON.format(classification.receivedAt()),
                 classification.senderDomain(),
                 orEmpty(classification.platform()),

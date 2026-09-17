@@ -164,7 +164,7 @@ Setting it up:
 3. Create a spreadsheet, rename the first tab to `classifications`, and **share the
    spreadsheet with the service account's email address** as an editor
 4. Add the first row by hand, as headers:
-   `gmail id · received at · sender domain · platform · company · role · update · urgent · subject`
+   `email · received at · sender domain · platform · company · role · update · urgent · subject`
 5. Encode the key and put it in `.env`:
 
 ```bash
@@ -174,6 +174,9 @@ base64 -w0 service-account-key.json
 A service account is an identity of its own rather than something acting on your behalf.
 It reaches exactly the spreadsheets shared with it and nothing else, and it has no
 consent that expires — so none of the token renewal that the mailbox needs applies here.
+
+The first column is a link that opens the email in Gmail, so any row leads straight to the
+message it came from.
 
 Rows are appended, never rewritten. Column J onwards is left alone, which is where notes
 belong.
