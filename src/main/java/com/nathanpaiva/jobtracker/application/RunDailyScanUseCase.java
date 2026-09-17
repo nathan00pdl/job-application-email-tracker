@@ -200,9 +200,12 @@ public class RunDailyScanUseCase {
         if (digest.isEmpty()) {
             log.info("digest: nothing waiting to be reported");
         } else {
-            log.info("digest: {} classifications from {} to {}, {} urgent, by type {}, platforms {}",
+            // The count of actions, never the list: each one carries a message id, and the
+            // log says how much happened, not where to find it.
+            log.info("digest: {} classifications from {} to {}, {} urgent, {} ask for action, "
+                            + "by type {}, platforms {}",
                     digest.total(), digest.earliest(), digest.latest(), digest.urgent(),
-                    digest.countsByType(), digest.platforms());
+                    digest.actions().size(), digest.countsByType(), digest.platforms());
         }
 
         notification.send(digest);

@@ -145,6 +145,6 @@ class DigestMessageTest {
                                       List<String> platforms, String earliest, String latest) {
         int total = counts.values().stream().mapToInt(Integer::intValue).sum();
         return new DailyDigest(total, counts, urgent, platforms,
-                Instant.parse(earliest), Instant.parse(latest));
+                Instant.parse(earliest), Instant.parse(latest), List.of());
     }
 }

@@ -43,5 +43,20 @@ public enum UpdateType {
      *
      * <p>A growing number of {@code OTHER} rows means a category is missing.
      */
-    OTHER
+    OTHER;
+
+    /**
+     * Whether an email of this kind waits on the reader: an offer to answer, an interview
+     * to schedule, a test to take, information to send.
+     *
+     * <p>The rest do not. A confirmation or a rejection is worth knowing, but there is
+     * nothing to do about either — and on a day of many applications they are most of the
+     * mail, which is exactly why they must not crowd a list of things to do.
+     */
+    public boolean asksForAction() {
+        return switch (this) {
+            case OFFER, INTERVIEW_INVITE, TECHNICAL_TEST, INFO_REQUEST -> true;
+            case APPLICATION_RECEIVED, REJECTION, OTHER -> false;
+        };
+    }
 }

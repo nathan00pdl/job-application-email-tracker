@@ -1,7 +1,9 @@
 package com.nathanpaiva.jobtracker.domain;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
@@ -11,7 +13,7 @@ import java.util.TreeSet;
 
 /**
  * What a set of classifications adds up to: how many, of which kinds, from which
- * platforms, and over which stretch of time.
+ * platforms, over which stretch of time, and which of them wait on the reader.
  *
  * <p>Every other domain type here describes one email. This is the first one that looks
  * at many of them at once and answers a different question: not "what is this email"
@@ -23,10 +25,12 @@ import java.util.TreeSet;
  * for counting would be stuck to the format of one messenger, and testing the counting
  * would mean matching text.
  *
- * <p><b>It carries no text taken from an email</b> — no subject, no body, not even the
- * message id. That is deliberate: a digest is meant to be logged, and the project logs
- * metadata only. Leaving the text out means logging one can never leak the content of a
- * mailbox, rather than relying on the caller to be careful.
+ * <p><b>It carries no text taken from an email</b> — no subject and no body. That is
+ * deliberate: a digest is meant to be logged, and the project logs metadata only. Leaving
+ * the text out means logging one can never leak the content of a mailbox, rather than
+ * relying on the caller to be careful. The emails that ask for action do carry their
+ * Gmail id, so the reader can be pointed straight at them; an id means nothing without
+ * access to the mailbox, and the project already logs ids for that reason.
  *
  * <p><b>It has no clock and no window.</b> It does not decide which classifications
  * belong to it; it is built from the ones it is handed, and reports the period it
@@ -43,6 +47,8 @@ import java.util.TreeSet;
  *                     classification whose platform could not be told is left out
  * @param earliest     when the oldest of them arrived; null when the digest is empty
  * @param latest       when the newest of them arrived; null when the digest is empty
+ * @param actions      the ones that wait on the reader, most important first; every one
+ *                     of them is also counted in the totals above
  */
 public record DailyDigest(
         int total,
@@ -50,8 +56,26 @@ public record DailyDigest(
         int urgent,
         List<String> platforms,
         Instant earliest,
-        Instant latest
+        Instant latest,
+        List<ActionNeeded> actions
 ) {
+
+    /**
+     * The order a reader should work through the list: an offer before an interview, an
+     * interview before a test, a test before a request for information, and anything else
+     * that is only urgent after all of those.
+     *
+     * <p>Within the same kind, the urgent ones come first, and then the oldest — it has
+     * been waiting longest.
+     */
+    private static final List<UpdateType> ACTION_PRIORITY = List.of(
+            UpdateType.OFFER, UpdateType.INTERVIEW_INVITE,
+            UpdateType.TECHNICAL_TEST, UpdateType.INFO_REQUEST);
+
+    private static final Comparator<ActionNeeded> MOST_IMPORTANT_FIRST =
+            Comparator.comparingInt((ActionNeeded action) -> priorityOf(action.updateType()))
+                    .thenComparing(ActionNeeded::urgent, Comparator.reverseOrder())
+                    .thenComparing(ActionNeeded::receivedAt);
 
     /**
      * Checks that the parts agree with each other, and copies the collections so that
@@ -93,6 +117,12 @@ public record DailyDigest(
 
         platforms = List.copyOf(platforms);
 
+        Objects.requireNonNull(actions, "actions must not be null");
+        actions = List.copyOf(actions);
+        if (actions.size() > total) {
+            throw new IllegalArgumentException("actions must not be more than total");
+        }
+
         if (total == 0) {
             if (earliest != null || latest != null) {
                 throw new IllegalArgumentException("an empty digest covers no period");
@@ -125,6 +155,7 @@ public record DailyDigest(
 
         Map<UpdateType, Integer> counts = new EnumMap<>(UpdateType.class);
         Collection<String> platforms = new TreeSet<>();
+        List<ActionNeeded> actions = new ArrayList<>();
         int urgent = 0;
         Instant earliest = null;
         Instant latest = null;
@@ -140,6 +171,7 @@ public record DailyDigest(
             if (classification.platform() != null && !classification.platform().isBlank()) {
                 platforms.add(classification.platform());
             }
+            ActionNeeded.of(classification).ifPresent(actions::add);
 
             Instant receivedAt = classification.receivedAt();
             if (earliest == null || receivedAt.isBefore(earliest)) {
@@ -150,13 +182,19 @@ public record DailyDigest(
             }
         }
 
-        return new DailyDigest(
-                classifications.size(), counts, urgent, List.copyOf(platforms), earliest, latest);
+        actions.sort(MOST_IMPORTANT_FIRST);
+        return new DailyDigest(classifications.size(), counts, urgent, List.copyOf(platforms),
+                earliest, latest, actions);
     }
 
     /** A digest of nothing. A run with no news still produces one. */
     public static DailyDigest empty() {
-        return new DailyDigest(0, Map.of(), 0, List.of(), null, null);
+        return new DailyDigest(0, Map.of(), 0, List.of(), null, null, List.of());
+    }
+
+    private static int priorityOf(UpdateType type) {
+        int index = ACTION_PRIORITY.indexOf(type);
+        return index < 0 ? ACTION_PRIORITY.size() : index;
     }
 
     /** Whether there is any news to report. */
