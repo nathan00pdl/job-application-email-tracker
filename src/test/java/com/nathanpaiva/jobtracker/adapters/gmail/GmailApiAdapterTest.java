@@ -2,8 +2,10 @@ package com.nathanpaiva.jobtracker.adapters.gmail;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.SocketTimeoutException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -187,6 +189,69 @@ class GmailApiAdapterTest {
         assertThatThrownBy(() -> adapter.fetchReceivedAfter(SINCE))
                 .isInstanceOf(UncheckedIOException.class);
         assertThat(statuses).hasSize(1);
+    }
+
+    /**
+     * One slow answer out of hundreds ended a ninety-day read of the real mailbox. A read
+     * can be asked again safely, so the run waits and asks, instead of dying on it.
+     */
+    @Test
+    void asksAgainWhenAReadTimesOut() {
+        List<Boolean> timesOut = new ArrayList<>(List.of(true, false));
+        MockHttpTransport transport = new MockHttpTransport() {
+            @Override
+            public LowLevelHttpRequest buildRequest(String method, String url) {
+                return new MockLowLevelHttpRequest() {
+                    @Override
+                    public LowLevelHttpResponse execute() throws IOException {
+                        if (timesOut.remove(0)) {
+                            throw new SocketTimeoutException("Read timed out");
+                        }
+                        return new MockLowLevelHttpResponse()
+                                .setStatusCode(200)
+                                .setContentType("application/json")
+                                .setContent("{\"messages\": []}");
+                    }
+                };
+            }
+        };
+        Gmail gmail = new Gmail.Builder(transport, GsonFactory.getDefaultInstance(),
+                GmailClientConfiguration.retrying(null))
+                .setApplicationName("test")
+                .build();
+
+        assertThat(new GmailApiAdapter(gmail).fetchReceivedAfter(SINCE)).isEmpty();
+        assertThat(timesOut).isEmpty();
+    }
+
+    /**
+     * The credential is refreshed before the request goes out, where no retry reaches. An
+     * expired token must still fail at once — waiting two minutes to be told the same
+     * thing would only delay the alert.
+     */
+    @Test
+    void doesNotWaitOutAFailedCredentialRefresh() {
+        List<Integer> calls = new ArrayList<>();
+        MockHttpTransport transport = new MockHttpTransport() {
+            @Override
+            public LowLevelHttpRequest buildRequest(String method, String url) {
+                calls.add(1);
+                return new MockLowLevelHttpRequest();
+            }
+        };
+        Gmail gmail = new Gmail.Builder(transport, GsonFactory.getDefaultInstance(),
+                GmailClientConfiguration.retrying(request -> request.setInterceptor(r -> {
+                    throw new IOException("{\"error\": \"invalid_grant\"}");
+                })))
+                .setApplicationName("test")
+                .build();
+
+        long started = System.nanoTime();
+        assertThatThrownBy(() -> new GmailApiAdapter(gmail).fetchReceivedAfter(SINCE))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("invalid_grant");
+        assertThat(calls).isEmpty();
+        assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(1));
     }
 
     // --- the stub ---
