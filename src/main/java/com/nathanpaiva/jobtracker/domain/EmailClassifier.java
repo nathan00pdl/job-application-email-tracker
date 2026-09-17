@@ -48,7 +48,8 @@ public final class EmailClassifier {
             Map.entry("workday.com", "Workday"), Map.entry("myworkdayjobs.com", "Workday"),
             Map.entry("gupy.io", "Gupy"), Map.entry("gupy.com.br", "Gupy"),
             Map.entry("kenoby.com", "Kenoby"), Map.entry("solides.com", "Sólides"),
-            Map.entry("inhire.app", "inHire"));
+            Map.entry("inhire.app", "inHire"), Map.entry("pandape.com.br", "Pandapé"),
+            Map.entry("bizneo.com", "Bizneo"), Map.entry("recrut.ai", "Recrut.AI"));
 
     /**
      * Addresses that belong to a system this project trusts, but carry its marketing
@@ -100,6 +101,7 @@ public final class EmailClassifier {
             "candidatura recebida", "candidatura registrada",
             "obrigado por se candidatar", "agradecemos sua candidatura",
             "agradecemos seu interesse na vaga",
+            "agradecemos seu interesse em nossa oportunidade",
             "retorno do processo seletivo", "retorno do seu processo seletivo",
             "inscricao via",
             "we received your application", "thank you for applying",
@@ -275,7 +277,8 @@ public final class EmailClassifier {
                 "infelizmente", "nao seguiremos", "nao foi selecionado",
                 "seguimos com outro", "outro candidato", "nao teremos como avancar",
                 "unfortunately", "not moving forward", "will not be proceeding",
-                "decided to move forward with other"));
+                "decided to move forward with other", "processo seletivo foi descontinuado",
+                "nao seguira conosco"));
         phrases.put(UpdateType.INTERVIEW_INVITE, Set.of(
                 "entrevista", "conversa com", "bate-papo", "agendar um horario",
                 "interview", "schedule a call", "meet the team"));
@@ -286,12 +289,17 @@ public final class EmailClassifier {
                 "pretensao salarial", "sua disponibilidade", "envie os documentos",
                 "precisamos de algumas informacoes", "preencha o formulario",
                 "salary expectation", "your availability", "fill out the form",
-                "we need some information"));
+                "we need some information", "complete sua inscricao",
+                "responda o questionario", "responder a um formulario"));
+        // Read last among the specific kinds: "sua candidatura para" also opens rejections,
+        // invitations and tests, and every one of those is checked first.
         phrases.put(UpdateType.APPLICATION_RECEIVED, Set.of(
                 "recebemos sua candidatura", "recebemos sua inscricao",
                 "sua candidatura foi recebida", "candidatura registrada",
                 "we received your application", "thank you for applying",
-                "application received", "obrigado por se candidatar"));
+                "application received", "obrigado por se candidatar",
+                "inscricao via", "confirmacao de inscricao", "inscricao recebida",
+                "sua candidatura para", "mantenha-se informado sobre sua candidatura"));
         return phrases;
     }
 }
