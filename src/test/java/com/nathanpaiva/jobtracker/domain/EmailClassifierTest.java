@@ -332,6 +332,79 @@ class EmailClassifierTest {
                 .isEqualTo(UpdateType.INTERVIEW_INVITE);
     }
 
+    /**
+     * Real confirmations from a morning of applications. Every one was kept, but as
+     * {@code OTHER}: the words proved an application existed without naming what kind of
+     * news it was, so eighteen of twenty-three went out in the digest as "sem categoria".
+     */
+    @ParameterizedTest(name = "{0}: \"{1}\"")
+    @CsvSource({
+            "indeed.com,          'Inscrição via Indeed: Desenvolvedor Java'",
+            "ses-mail.inhire.app, 'Confirmação de Inscrição - Desenvolvedor(a) Júnior'",
+            "pandape.com.br,      'Mantenha-se informado sobre sua candidatura para Desenvolvedor Java'",
+            "ats.bizneo.com,      'Sua candidatura para Desenvolvedor(a) Backend Java'",
+            "ats.bizneo.com,      'Sauter Digital | Inscrição recebida – Vaga Desenvolvedor(a) Backend Java'"
+    })
+    void namesAConfirmationAsOne(String senderDomain, String subject) {
+        assertThat(classify(senderDomain, subject)).get()
+                .extracting(EmailClassification::updateType)
+                .isEqualTo(UpdateType.APPLICATION_RECEIVED);
+    }
+
+    /**
+     * Three emails from the same morning that each asked for something. Two were dropped,
+     * because neither the sender nor the words proved an application; the third was kept
+     * as a confirmation, because its body thanked for the application before asking to
+     * finish it. A digest that lists what needs doing would have listed none of them.
+     */
+    @ParameterizedTest(name = "{0}: \"{1}\"")
+    @CsvSource({
+            "pandape.com.br, 'Responda o questionário para avançar no processo', 'Acesse o link.'",
+            "ats.bizneo.com, 'Sauter convidou você para responder a um formulário', 'Acesse o link.'",
+            "ats.bizneo.com, 'Complete sua inscrição para Desenvolvedor(a) Backend Java', 'Recebemos sua inscrição, falta pouco.'"
+    })
+    void recognisesARequestToDoSomethingAsOne(String senderDomain, String subject, String body) {
+        assertThat(classify(senderDomain, subject, body)).get()
+                .extracting(EmailClassification::updateType)
+                .isEqualTo(UpdateType.INFO_REQUEST);
+    }
+
+    /**
+     * Two ways the same system ends a process: closed by the company, and closed for the
+     * candidate. Both were dropped — the system was not on the list and neither wording
+     * was either — and a closed process is exactly the kind of news worth keeping.
+     */
+    @ParameterizedTest(name = "\"{0}\"")
+    @CsvSource({
+            "'[CLIN] Retorno sobre a oportunidade', 'Agradecemos seu interesse em nossa oportunidade. Devido a mudanças internas e decisões de negócio, o processo seletivo foi descontinuado.'",
+            "'[GRUPOSUPERABC] Retorno sobre a oportunidade', 'Agradecemos seu interesse em se candidatar em nossa oportunidade. Nesse momento, você não seguirá conosco no processo seletivo, mas não desanime!'"
+    })
+    void recognisesAClosedProcessAsARejection(String subject, String body) {
+        assertThat(classify("job.recrut.ai", subject, body))
+                .get()
+                .satisfies(classification -> {
+                    assertThat(classification.updateType()).isEqualTo(UpdateType.REJECTION);
+                    assertThat(classification.platform()).isEqualTo("Recrut.AI");
+                });
+    }
+
+    /**
+     * "Sua candidatura para" now names a confirmation, but it opens rejections and
+     * invitations just as often. Those are read first, so the new phrase cannot swallow
+     * them.
+     */
+    @Test
+    void doesNotLetAConfirmationPhraseSwallowMoreSpecificNews() {
+        assertThat(classify("pandape.com.br", "Sua candidatura para Desenvolvedor Java",
+                "Infelizmente não seguiremos com o seu perfil.")).get()
+                .extracting(EmailClassification::updateType).isEqualTo(UpdateType.REJECTION);
+
+        assertThat(classify("pandape.com.br", "Sua candidatura para Desenvolvedor Java",
+                "Gostaríamos de agendar uma entrevista.")).get()
+                .extracting(EmailClassification::updateType)
+                .isEqualTo(UpdateType.INTERVIEW_INVITE);
+    }
+
     private Optional<EmailClassification> classify(String senderDomain, String subject) {
         return classify(senderDomain, subject, "corpo");
     }
