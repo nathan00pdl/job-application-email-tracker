@@ -2,6 +2,7 @@ package com.nathanpaiva.jobtracker.adapters.gmail;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -82,6 +83,21 @@ class GmailApiAdapterTest {
         adapter.fetchReceivedAfter(SINCE);
 
         assertThat(listRequests().getFirst()).contains(String.valueOf(SINCE.getEpochSecond()));
+    }
+
+    /**
+     * A reply quotes the message it answers. Found in the real mailbox: the author's own
+     * email to a recruiter came back from the search next to the replies from companies,
+     * and a reply to an invitation would have been stored as the invitation.
+     */
+    @Test
+    void leavesTheAuthorsOwnSentMailOutOfTheSearch() {
+        GmailApiAdapter adapter = adapterFor(Map.of(), List.of(List.of()));
+
+        adapter.fetchReceivedAfter(SINCE);
+
+        assertThat(URLDecoder.decode(listRequests().getFirst(), StandardCharsets.UTF_8))
+                .contains("q=after:" + SINCE.getEpochSecond() + " -in:sent");
     }
 
     /**
