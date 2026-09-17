@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Last updated: 2026-09-15
+Last updated: 2026-09-17
 
 **job-application-email-tracker** ("the app") is a personal, open-source project built
 and run by one person, for that person's own mailbox. It has no other users, no company
@@ -44,10 +44,13 @@ subject, a sender, the text of a message, or any credential.
 ## The daily summary
 
 Once a day, a summary is sent to the author's own phone number over WhatsApp, through
-Meta's WhatsApp Cloud API. It holds the same kind of information as the log: how many
-updates arrived, how many of each kind, how many are urgent, the names of the hiring
-platforms, and the dates they cover. It never holds a subject, a sender, or any text from
-a message. Meta receives it only to deliver it.
+Meta's WhatsApp Cloud API. It holds how many updates arrived and of which kind, and lists
+the ones that ask for action — an offer, an interview, a test, a request for information,
+or anything with a deadline. For each of those it names the kind, the hiring platform or
+else the domain the email came from, the day it arrived, and a link that opens it in
+Gmail, which only works for someone signed in to the author's account. It also links to
+the author's private spreadsheet. It never holds a subject, a sender's address, or any
+text from a message. Meta receives it only to deliver it.
 
 Access credentials are held as GitHub Actions secrets for the scheduled run, and in a local
 `.env` file on the author's machine for runs started by hand. Neither is ever committed to
