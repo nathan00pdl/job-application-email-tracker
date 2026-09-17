@@ -201,6 +201,7 @@ class MetaWhatsAppAdapterTest {
     private static DailyDigest digest() {
         return new DailyDigest(3, Map.of(UpdateType.INTERVIEW_INVITE, 1, UpdateType.REJECTION, 2),
                 1, List.of("Gupy"),
-                Instant.parse("2026-09-14T12:00:00Z"), Instant.parse("2026-09-14T20:00:00Z"));
+                Instant.parse("2026-09-14T12:00:00Z"), Instant.parse("2026-09-14T20:00:00Z"),
+                List.of());
     }
 }

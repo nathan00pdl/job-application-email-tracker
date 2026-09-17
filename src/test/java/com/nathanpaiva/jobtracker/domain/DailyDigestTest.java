@@ -124,6 +124,7 @@ class DailyDigestTest {
         assertThat(digest.platforms()).isEmpty();
         assertThat(digest.earliest()).isNull();
         assertThat(digest.latest()).isNull();
+        assertThat(digest.actions()).isEmpty();
         assertThat(digest).isEqualTo(DailyDigest.empty());
     }
 
@@ -145,7 +146,7 @@ class DailyDigestTest {
     @Test
     void rejectsCountsThatDoNotAddUpToTheTotal() {
         assertThatThrownBy(() -> new DailyDigest(
-                5, Map.of(UpdateType.OFFER, 1), 0, List.of(), NOON, NOON))
+                5, Map.of(UpdateType.OFFER, 1), 0, List.of(), NOON, NOON, List.of()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("adds up to 1")
                 .hasMessageContaining("total is 5");
@@ -154,7 +155,7 @@ class DailyDigestTest {
     @Test
     void rejectsMoreUrgentEmailsThanEmails() {
         assertThatThrownBy(() -> new DailyDigest(
-                1, Map.of(UpdateType.OFFER, 1), 2, List.of(), NOON, NOON))
+                1, Map.of(UpdateType.OFFER, 1), 2, List.of(), NOON, NOON, List.of()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("urgent");
     }
@@ -162,14 +163,14 @@ class DailyDigestTest {
     @Test
     void rejectsAKindRecordedAsZero() {
         assertThatThrownBy(() -> new DailyDigest(
-                0, Map.of(UpdateType.OFFER, 0), 0, List.of(), null, null))
+                0, Map.of(UpdateType.OFFER, 0), 0, List.of(), null, null, List.of()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("only the kinds that occurred");
     }
 
     @Test
     void rejectsAnEmptyDigestThatClaimsToCoverAPeriod() {
-        assertThatThrownBy(() -> new DailyDigest(0, Map.of(), 0, List.of(), NOON, NOON))
+        assertThatThrownBy(() -> new DailyDigest(0, Map.of(), 0, List.of(), NOON, NOON, List.of()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("empty digest covers no period");
     }
@@ -177,9 +178,83 @@ class DailyDigestTest {
     @Test
     void rejectsAPeriodThatEndsBeforeItStarts() {
         assertThatThrownBy(() -> new DailyDigest(
-                1, Map.of(UpdateType.OFFER, 1), 0, List.of(), EVENING, MORNING))
+                1, Map.of(UpdateType.OFFER, 1), 0, List.of(), EVENING, MORNING, List.of()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("earliest must not be after latest");
+    }
+
+    /**
+     * The list holds what waits on the reader, and nothing else. On a morning of
+     * applications, the confirmations and the rejections are most of the mail — counted,
+     * but kept out of the list, or it would bury the one email that matters.
+     */
+    @Test
+    void listsOnlyTheEmailsThatWaitOnTheReader() {
+        DailyDigest digest = DailyDigest.of(List.of(
+                classification("confirmation", NOON, UpdateType.APPLICATION_RECEIVED, "Indeed", false),
+                classification("rejection", NOON, UpdateType.REJECTION, "Gupy", false),
+                classification("other", NOON, UpdateType.OTHER, null, false),
+                classification("interview", NOON, UpdateType.INTERVIEW_INVITE, "Gupy", false),
+                classification("form", NOON, UpdateType.INFO_REQUEST, "Bizneo", false)));
+
+        assertThat(digest.actions()).extracting(ActionNeeded::gmailMessageId)
+                .containsExactlyInAnyOrder("interview", "form");
+        assertThat(digest.total()).isEqualTo(5);
+    }
+
+    /** A deadline asks for action whatever kind of email carries it. */
+    @Test
+    void listsAnUrgentEmailOfAnyKind() {
+        DailyDigest digest = DailyDigest.of(List.of(
+                classification("deadline", NOON, UpdateType.APPLICATION_RECEIVED, "Gupy", true)));
+
+        assertThat(digest.actions()).extracting(ActionNeeded::gmailMessageId)
+                .containsExactly("deadline");
+    }
+
+    /**
+     * Most important first, whatever order the database returned: offer, interview, test,
+     * request, then what is only urgent. Within a kind, urgent before not, then oldest.
+     */
+    @Test
+    void ordersTheListFromTheMostImportant() {
+        DailyDigest digest = DailyDigest.of(List.of(
+                classification("urgent-confirmation", MORNING, UpdateType.APPLICATION_RECEIVED, "Gupy", true),
+                classification("request", MORNING, UpdateType.INFO_REQUEST, "Gupy", false),
+                classification("late-interview", EVENING, UpdateType.INTERVIEW_INVITE, "Gupy", false),
+                classification("test", MORNING, UpdateType.TECHNICAL_TEST, "Gupy", false),
+                classification("early-interview", MORNING, UpdateType.INTERVIEW_INVITE, "Gupy", false),
+                classification("urgent-interview", EVENING, UpdateType.INTERVIEW_INVITE, "Gupy", true),
+                classification("offer", EVENING, UpdateType.OFFER, "Gupy", false)));
+
+        assertThat(digest.actions()).extracting(ActionNeeded::gmailMessageId).containsExactly(
+                "offer", "urgent-interview", "early-interview", "late-interview", "test",
+                "request", "urgent-confirmation");
+    }
+
+    /**
+     * The platform is the more useful name, but a company writing from its own address
+     * has none. Its domain is still a fact about who wrote, and far better than a blank.
+     */
+    @Test
+    void namesThePlatformOrElseTheSendersDomain() {
+        DailyDigest digest = DailyDigest.of(List.of(
+                classification("platform", MORNING, UpdateType.OFFER, "Gupy", false),
+                new EmailClassification("domain", NOON, "empresa.com.br", null, null, null,
+                        UpdateType.TECHNICAL_TEST, null, false)));
+
+        assertThat(digest.actions()).extracting(ActionNeeded::source)
+                .containsExactly("Gupy", "empresa.com.br");
+    }
+
+    @Test
+    void cannotListMoreActionsThanEmails() {
+        ActionNeeded action = new ActionNeeded("a", UpdateType.OFFER, "Gupy", NOON, false);
+
+        assertThatThrownBy(() -> new DailyDigest(1, Map.of(UpdateType.OFFER, 1), 0, List.of(),
+                NOON, NOON, List.of(action, action)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("actions");
     }
 
     private static EmailClassification classification(
