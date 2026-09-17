@@ -11,7 +11,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.AfterEach;
@@ -19,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.nathanpaiva.jobtracker.domain.DailyDigest;
+import com.nathanpaiva.jobtracker.domain.EmailClassification;
 import com.nathanpaiva.jobtracker.domain.UpdateType;
 import com.sun.net.httpserver.HttpServer;
 
@@ -46,6 +46,8 @@ class MetaWhatsAppAdapterTest {
     /** A made-up number, written the way the Meta panel shows one. */
     private static final String RECIPIENT = "+55-11-90000-0000";
     private static final String RECIPIENT_DIGITS = "5511900000000";
+
+    private static final String SPREADSHEET_ID = "test-spreadsheet-id";
 
     private static final Instant SENT_AT = Instant.parse("2026-09-15T09:00:00Z");
 
@@ -95,38 +97,43 @@ class MetaWhatsAppAdapterTest {
         assertThat(request.contentType()).isEqualTo("application/json");
     }
 
-    /** The approved template, by name and language, with the five values in order. */
+    /**
+     * The approved template, by name and language, with the fifteen values in order —
+     * including the link to the email that waits on the reader and to the spreadsheet.
+     */
     @Test
-    void sendsTheTemplateWithTheFiveValuesInOrder() {
+    void sendsTheTemplateWithTheFifteenValuesInOrder() {
         adapter().send(digest());
 
         JsonNode body = JSON.readTree(received.get().body());
         assertThat(body.path("messaging_product").asString()).isEqualTo("whatsapp");
         assertThat(body.path("type").asString()).isEqualTo("template");
-        assertThat(body.at("/template/name").asString()).isEqualTo("resumo_diario");
+        assertThat(body.at("/template/name").asString()).isEqualTo("resumo_diario_acoes");
         assertThat(body.at("/template/language/code").asString()).isEqualTo("pt_BR");
         assertThat(body.at("/template/components/0/type").asString()).isEqualTo("body");
 
-        List<String> values = new ArrayList<>();
-        body.at("/template/components/0/parameters")
-                .forEach(parameter -> values.add(parameter.path("text").asString()));
+        List<String> values = parametersOf(body);
         assertThat(values).containsExactlyElementsOf(
-                DigestMessage.forDigest(digest(), SENT_AT).values());
+                DigestMessage.forDigest(digest(), SENT_AT, SPREADSHEET_ID).values());
+        assertThat(values.get(3)).endsWith("https://mail.google.com/mail/u/0/#all/interview-id");
+        assertThat(values.get(14)).contains(SPREADSHEET_ID);
     }
 
-    /** A day with no news goes out through its own template, with the date as its one value. */
+    /** A day with no news goes out through the same template, all fifteen blanks filled. */
     @Test
-    void sendsTheEmptyTemplateOnADayWithNoNews() {
+    void sendsTheSameTemplateOnADayWithNoNews() {
         adapter().send(DailyDigest.empty());
 
         JsonNode body = JSON.readTree(received.get().body());
-        assertThat(body.at("/template/name").asString()).isEqualTo("resumo_diario_vazio");
-        assertThat(body.at("/template/language/code").asString()).isEqualTo("pt_BR");
+        assertThat(body.at("/template/name").asString()).isEqualTo("resumo_diario_acoes");
+        assertThat(parametersOf(body)).hasSize(15).doesNotContain("");
+    }
 
+    private static List<String> parametersOf(JsonNode body) {
         List<String> values = new ArrayList<>();
         body.at("/template/components/0/parameters")
                 .forEach(parameter -> values.add(parameter.path("text").asString()));
-        assertThat(values).containsExactly("15/09");
+        return values;
     }
 
     /** A number pasted the way the Meta panel shows it still goes out as digits. */
@@ -194,14 +201,20 @@ class MetaWhatsAppAdapterTest {
     private static MetaWhatsAppAdapter adapter(URI apiUrl) {
         return new MetaWhatsAppAdapter(
                 HttpClient.newHttpClient(),
-                new WhatsAppProperties(TOKEN, PHONE_NUMBER_ID, RECIPIENT, apiUrl),
+                new WhatsAppProperties(TOKEN, PHONE_NUMBER_ID, RECIPIENT, apiUrl, SPREADSHEET_ID),
                 Clock.fixed(SENT_AT, ZoneOffset.UTC));
     }
 
+    /** Three emails, one of which — the interview — waits on the reader. */
     private static DailyDigest digest() {
-        return new DailyDigest(3, Map.of(UpdateType.INTERVIEW_INVITE, 1, UpdateType.REJECTION, 2),
-                1, List.of("Gupy"),
-                Instant.parse("2026-09-14T12:00:00Z"), Instant.parse("2026-09-14T20:00:00Z"),
-                List.of());
+        return DailyDigest.of(List.of(
+                classification("interview-id", UpdateType.INTERVIEW_INVITE, true),
+                classification("rejection-1", UpdateType.REJECTION, false),
+                classification("rejection-2", UpdateType.REJECTION, false)));
+    }
+
+    private static EmailClassification classification(String id, UpdateType type, boolean urgent) {
+        return new EmailClassification(id, Instant.parse("2026-09-14T12:00:00Z"), "gupy.com.br",
+                "Gupy", null, null, type, null, urgent);
     }
 }

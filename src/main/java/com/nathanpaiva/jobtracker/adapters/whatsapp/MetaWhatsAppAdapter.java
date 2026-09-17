@@ -26,11 +26,11 @@ import tools.jackson.databind.json.JsonMapper;
  * Sends the daily digest as a WhatsApp template, through Meta's Cloud API.
  *
  * <p>One request per digest: a POST to {@code /{phone-number-id}/messages} naming the
- * approved template {@link DigestMessage} chooses — one for a day with news, another for a
- * day without — and carrying the values it fills. Meta answers
- * with a 2xx when it accepts the message, and that is all this class waits for. Whether
- * the message reached the phone is reported later, through a webhook this project does not
- * run.
+ * approved template and carrying the fifteen values {@link DigestMessage} fills — the
+ * counts, the emails that wait on the reader with a link to each, and a link to the
+ * spreadsheet. Meta answers with a 2xx when it accepts the message, and that is all this
+ * class waits for. Whether the message reached the phone is reported later, through a
+ * webhook this project does not run.
  *
  * <p><b>Nothing is retried.</b> A refusal, or a Meta that cannot be reached, ends the run,
  * and the failure opens an issue. Stopping loses nothing: the classifications stay marked
@@ -54,6 +54,7 @@ class MetaWhatsAppAdapter implements NotificationPort {
     private final Clock clock;
     private final String accessToken;
     private final String recipient;
+    private final String spreadsheetId;
     private final URI messagesEndpoint;
 
     MetaWhatsAppAdapter(HttpClient whatsAppHttpClient, WhatsAppProperties properties,
@@ -62,13 +63,15 @@ class MetaWhatsAppAdapter implements NotificationPort {
         this.clock = clock;
         this.accessToken = properties.accessToken();
         this.recipient = digitsOf(properties.recipient());
+        this.spreadsheetId = properties.spreadsheetId();
         String base = properties.apiUrl().toString().replaceAll("/+$", "");
         this.messagesEndpoint = URI.create(base + "/" + properties.phoneNumberId() + "/messages");
     }
 
     @Override
     public void send(DailyDigest digest) {
-        DigestMessage.Template template = DigestMessage.forDigest(digest, clock.instant());
+        DigestMessage.Template template =
+                DigestMessage.forDigest(digest, clock.instant(), spreadsheetId);
 
         HttpRequest request = HttpRequest.newBuilder(messagesEndpoint)
                 .timeout(ANSWER_TIMEOUT)
@@ -94,8 +97,8 @@ class MetaWhatsAppAdapter implements NotificationPort {
 
         // What was sent, not what came back: reading the answer to log it would let an
         // absent field turn a message Meta accepted into a failed run.
-        log.info("sent the digest over WhatsApp: {} updates, {} urgent",
-                digest.total(), digest.urgent());
+        log.info("sent the digest over WhatsApp: {} updates, {} urgent, {} ask for action",
+                digest.total(), digest.urgent(), digest.actions().size());
     }
 
     /**
