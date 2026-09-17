@@ -25,37 +25,51 @@ class DigestMessageTest {
     private static final Instant SENT_AT = Instant.parse("2026-09-15T09:00:00Z");
 
     @Test
-    void fillsTheFiveBlanksInOrder() {
+    void fillsTheFiveBlanksOfTheDigestTemplateInOrder() {
         DailyDigest digest = digest(
                 Map.of(UpdateType.INTERVIEW_INVITE, 1, UpdateType.REJECTION, 2),
                 1, List.of("Gupy", "LinkedIn"),
                 "2026-09-14T12:00:00Z", "2026-09-14T20:00:00Z");
 
-        assertThat(DigestMessage.templateValues(digest, SENT_AT)).containsExactly(
+        DigestMessage.Template template = DigestMessage.forDigest(digest, SENT_AT);
+
+        assertThat(template.name()).isEqualTo("resumo_diario");
+        assertThat(template.values()).containsExactly(
                 "14/09", "3", "1", "1 entrevista, 2 recusas", "Gupy, LinkedIn");
     }
 
     /**
-     * A day with no news is still reported, and says so in words instead of leaving the
-     * blanks empty. It covers no period, so it is dated by the day it is sent.
+     * A day with no news is still reported, through a template of its own: the one for
+     * news would end by pointing at a spreadsheet with nothing new in it. It covers no
+     * period, so it is dated by the day it is sent.
      */
     @Test
-    void reportsADayWithNothingInIt() {
-        assertThat(DigestMessage.templateValues(DailyDigest.empty(), SENT_AT))
-                .containsExactly("15/09", "0", "0", "nenhuma", "nenhuma");
+    void reportsADayWithNothingInItThroughTheEmptyTemplate() {
+        DigestMessage.Template template = DigestMessage.forDigest(DailyDigest.empty(), SENT_AT);
+
+        assertThat(template.name()).isEqualTo("resumo_diario_vazio");
+        assertThat(template.values()).containsExactly("15/09");
     }
 
     /**
      * When a delivery fails, the next digest carries everything still waiting. The period
-     * stretches to show it, so a backlog does not pass for a busy day.
+     * grows to cover it, so a backlog does not pass for a busy day.
      */
     @Test
     void stretchesThePeriodOverABacklog() {
         DailyDigest digest = digest(Map.of(UpdateType.OTHER, 2), 0, List.of(),
                 "2026-09-13T12:00:00Z", "2026-09-15T08:00:00Z");
 
-        assertThat(DigestMessage.templateValues(digest, SENT_AT).get(0))
-                .isEqualTo("13/09 a 15/09");
+        assertThat(values(digest).get(0)).isEqualTo("13/09 a 15/09");
+    }
+
+    /** A digest whose emails came from no known platform says so instead of a blank. */
+    @Test
+    void saysNoPlatformInWordsWhenNoneWasTold() {
+        DailyDigest digest = digest(Map.of(UpdateType.OTHER, 1), 0, List.of(),
+                "2026-09-14T12:00:00Z", "2026-09-14T12:00:00Z");
+
+        assertThat(values(digest).get(4)).isEqualTo("nenhuma");
     }
 
     /**
@@ -67,9 +81,9 @@ class DigestMessageTest {
         DailyDigest digest = digest(Map.of(UpdateType.REJECTION, 2), 0, List.of(),
                 "2026-09-14T15:00:00Z", "2026-09-15T02:30:00Z");
 
-        assertThat(DigestMessage.templateValues(digest, SENT_AT).get(0)).isEqualTo("14/09");
-        assertThat(DigestMessage.templateValues(DailyDigest.empty(),
-                Instant.parse("2026-09-15T01:00:00Z")).get(0)).isEqualTo("14/09");
+        assertThat(values(digest).get(0)).isEqualTo("14/09");
+        assertThat(DigestMessage.forDigest(DailyDigest.empty(),
+                Instant.parse("2026-09-15T01:00:00Z")).values().get(0)).isEqualTo("14/09");
     }
 
     @Test
@@ -107,14 +121,16 @@ class DigestMessageTest {
                 List.of("Gupy\nTalentos", "Sólides\t   Vagas"),
                 "2026-09-14T12:00:00Z", "2026-09-14T12:00:00Z");
 
-        assertThat(DigestMessage.templateValues(digest, SENT_AT).get(4))
-                .isEqualTo("Gupy Talentos, Sólides Vagas");
+        assertThat(values(digest).get(4)).isEqualTo("Gupy Talentos, Sólides Vagas");
+    }
+
+    private static List<String> values(DailyDigest digest) {
+        return DigestMessage.forDigest(digest, SENT_AT).values();
     }
 
     private static String byKind(Map<UpdateType, Integer> counts) {
-        return DigestMessage.templateValues(
-                digest(counts, 0, List.of(), "2026-09-14T12:00:00Z", "2026-09-14T12:00:00Z"),
-                SENT_AT).get(3);
+        return values(digest(counts, 0, List.of(),
+                "2026-09-14T12:00:00Z", "2026-09-14T12:00:00Z")).get(3);
     }
 
     private static Map<UpdateType, Integer> everyKind(int count) {

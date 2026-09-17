@@ -6,16 +6,20 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import com.nathanpaiva.jobtracker.domain.DailyDigest;
 import com.nathanpaiva.jobtracker.domain.UpdateType;
 
 /**
- * Turns a {@link DailyDigest} into the values of the {@code resumo_diario} template.
+ * Chooses the template for a {@link DailyDigest} and fills its blanks.
  *
  * <p>A WhatsApp message that the business sends first has to be a template Meta approved
- * in advance. Its text is fixed; only the blanks change from one day to the next. This is
- * the approved text, and this class fills its five blanks, in order:
+ * in advance. Its text is fixed; only the blanks change from one day to the next. So a day
+ * with news and a day without are two templates, not one: no value put in a blank can
+ * remove a line of fixed text.
+ *
+ * <p>A day with news uses {@code resumo_diario}, with five blanks:
  *
  * <pre>
  * Resumo diário das suas candidaturas, referente a {{1}}.
@@ -29,8 +33,20 @@ import com.nathanpaiva.jobtracker.domain.UpdateType;
  * Os detalhes de cada e-mail estão na planilha de acompanhamento.
  * </pre>
  *
- * <p>The two are tied: a change to the template on Meta's side means a change here, and
- * the other way round.
+ * <p>A day without uses {@code resumo_diario_vazio}, with one. Sent through the first
+ * template, it would end by pointing the reader at a spreadsheet with nothing new in it:
+ *
+ * <pre>
+ * Resumo diário das suas candidaturas, referente a {{1}}.
+ *
+ * Nenhuma novidade.
+ *
+ * A planilha só é alterada quando houver novidades.
+ * </pre>
+ *
+ * <p>The templates and this class are tied: a change on Meta's side means a change here,
+ * and the other way round. What has to match exactly is each template's name, its
+ * language and how many blanks it has.
  *
  * <p>The words are Portuguese because a person in Brazil reads them, inside a message
  * whose fixed text is Portuguese too. Like the phrases the classifier looks for, they are
@@ -42,11 +58,26 @@ import com.nathanpaiva.jobtracker.domain.UpdateType;
 final class DigestMessage {
 
     /**
-     * The template's name and language, as registered with Meta. Both are part of what was
+     * The templates' names and language, as registered with Meta. All are part of what was
      * approved: another name or another language is another template.
      */
     static final String TEMPLATE = "resumo_diario";
+    static final String EMPTY_TEMPLATE = "resumo_diario_vazio";
     static final String LANGUAGE = "pt_BR";
+
+    /**
+     * Which template to send, and the values of its blanks, in order.
+     *
+     * @param name   the template's name, as registered with Meta
+     * @param values one value per blank
+     */
+    record Template(String name, List<String> values) {
+
+        Template {
+            Objects.requireNonNull(name, "name must not be null");
+            values = List.copyOf(values);
+        }
+    }
 
     /**
      * The reader is in Brazil, so the dates are the reader's dates, in the same zone the
@@ -58,8 +89,8 @@ final class DigestMessage {
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("dd/MM");
 
     /**
-     * What goes in a blank that has nothing to hold, so the message never reads
-     * "Plataformas de origem: ."
+     * What goes in the platforms blank when no platform could be told, so the message
+     * never reads "Plataformas de origem: ."
      */
     private static final String NOTHING = "nenhuma";
 
@@ -84,37 +115,37 @@ final class DigestMessage {
     }
 
     /**
-     * The five values, in the order of the template's blanks.
+     * The template for this digest, with its blanks filled.
      *
      * @param digest what to report
      * @param now    the moment of sending; it only dates a digest with nothing in it
      */
-    static List<String> templateValues(DailyDigest digest, Instant now) {
+    static Template forDigest(DailyDigest digest, Instant now) {
         Objects.requireNonNull(digest, "digest must not be null");
         Objects.requireNonNull(now, "now must not be null");
 
-        return List.of(
-                oneLine(period(digest, now)),
+        // A digest with nothing in it covers no period, so it is dated by the day it is sent.
+        if (digest.isEmpty()) {
+            return new Template(EMPTY_TEMPLATE,
+                    List.of(DAY.format(now.atZone(READER_ZONE).toLocalDate())));
+        }
+
+        return new Template(TEMPLATE, List.of(
+                oneLine(period(digest)),
                 String.valueOf(digest.total()),
                 String.valueOf(digest.urgent()),
                 oneLine(byKind(digest)),
-                oneLine(platforms(digest)));
+                oneLine(platforms(digest))));
     }
 
     /**
      * The days the digest covers, as the reader counts them.
      *
      * <p>Usually one day. When a delivery failed, the next digest carries everything still
-     * waiting, and the period stretches to show it — "13/09 a 15/09" — so a backlog does
-     * not pass for a busy day.
-     *
-     * <p>A digest with nothing in it covers no period, so it is dated by the day it is
-     * sent.
+     * waiting, and the period grows to cover it — "13/09 a 15/09" — so a backlog does not
+     * pass for a busy day.
      */
-    private static String period(DailyDigest digest, Instant now) {
-        if (digest.isEmpty()) {
-            return DAY.format(now.atZone(READER_ZONE).toLocalDate());
-        }
+    private static String period(DailyDigest digest) {
         LocalDate first = digest.earliest().atZone(READER_ZONE).toLocalDate();
         LocalDate last = digest.latest().atZone(READER_ZONE).toLocalDate();
         return first.equals(last)
@@ -122,13 +153,15 @@ final class DigestMessage {
                 : DAY.format(first) + " a " + DAY.format(last);
     }
 
-    /** "1 entrevista, 2 recusas", naming only the kinds that occurred. */
+    /**
+     * "1 entrevista, 2 recusas", naming only the kinds that occurred. Never empty: this is
+     * only called for a digest with something in it, and its counts add up to its total.
+     */
     private static String byKind(DailyDigest digest) {
-        List<String> counted = KINDS.stream()
+        return KINDS.stream()
                 .filter(kind -> digest.countOf(kind.type()) > 0)
                 .map(kind -> kind.counted(digest.countOf(kind.type())))
-                .toList();
-        return counted.isEmpty() ? NOTHING : String.join(", ", counted);
+                .collect(Collectors.joining(", "));
     }
 
     private static String platforms(DailyDigest digest) {
