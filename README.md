@@ -186,24 +186,52 @@ belong.
 At the end of every run, whatever has not been reported yet goes out as one WhatsApp
 message to your own number — every day, even when there is nothing new, so that a morning
 without one means something failed. It is sent from Meta's free test number, through the
-WhatsApp Cloud API, as the approved template `resumo_diario`:
+WhatsApp Cloud API, as the approved template `resumo_diario_acoes`:
 
 ```
 Resumo diário das suas candidaturas, referente a {{1}}.
 
-Novidades recebidas: {{2}}, das quais {{3}} pedem atenção urgente.
+Este resumo reúne os e-mails sobre processos seletivos que chegaram desde o envio anterior, já classificados de forma automática.
 
-Por tipo de atualização: {{4}}.
+Chegaram {{2}} e-mails sobre candidaturas. Divisão por tipo de retorno: {{3}}.
 
-Plataformas de origem: {{5}}.
+Pedem sua atenção, do mais importante para o menos importante. Cada item mostra o tipo de retorno, a plataforma ou o domínio de quem enviou, a data de chegada e o link que abre o e-mail direto no Gmail:
+1) {{4}}
+2) {{5}}
+3) {{6}}
+4) {{7}}
+5) {{8}}
+6) {{9}}
+7) {{10}}
+8) {{11}}
+9) {{12}}
+10) {{13}}
 
-Os detalhes de cada e-mail estão na planilha de acompanhamento.
+Além desses, também pedem atenção: {{14}}.
+
+Propostas, testes técnicos, entrevistas, pedidos de informação e e-mails com prazo entram na lista. Confirmações de inscrição, recusas e e-mails sem categoria não entram, mas aparecem na contagem acima e ficam registrados na planilha de acompanhamento: {{15}}
+
+Vagas sem item aparecem com um traço. Mensagem automática, enviada uma vez por dia.
 ```
 
-The message holds only counts, dates and platform names — never a subject or a sender.
-The classifications it covers are marked as reported only after Meta accepts the message,
-so a delivery that fails leaves them for the next run, and the period in the message
-grows to cover the days that were missed.
+The point of the message is what needs doing, not how much arrived. An offer, an interview,
+a technical test, a request for information, or anything with a deadline is listed, most
+important first, as one line with a link that opens that email in Gmail:
+
+```
+Entrevista · URGENTE · Gupy · 17/09 · https://mail.google.com/mail/u/0/#all/<id>
+```
+
+Confirmations and rejections are only counted: on a day of many applications they are most
+of the mail, and would bury the one email that matters. Ten emails fit; beyond that the
+message says how many more, and the spreadsheet has them all. A quiet day keeps the same
+shape, with a dash in each place.
+
+The message holds counts, dates, platform or sender domains and links to the emails —
+never a subject, a sender's address or any text from a message. The classifications it
+covers are marked as reported only after Meta accepts the message, so a delivery that
+fails leaves them for the next run, and the period in the message grows to cover the days
+that were missed.
 
 Setting it up, once, on Meta's side:
 
@@ -211,9 +239,9 @@ Setting it up, once, on Meta's side:
    through WhatsApp* use case.
 2. In *Step 1 · Try it*, claim the free test number and add your own number as a
    recipient.
-3. In WhatsApp Manager, on the test account, create `resumo_diario`: category Utility,
-   language Portuguese (BR), the text above, and a fixed header with no variable — the
-   editor refuses an empty one.
+3. In WhatsApp Manager, on the test account, create `resumo_diario_acoes`: category
+   Utility, language Portuguese (BR), variables of type *Number*, the text above, and a
+   fixed header with no variable — the editor refuses an empty one.
 4. In Business settings, add a system user with the Employee role, assign it the app and
    the test WhatsApp account, and generate a token that never expires, with only the
    `whatsapp_business_messaging` permission.
