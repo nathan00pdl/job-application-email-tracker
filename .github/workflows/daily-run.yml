@@ -187,7 +187,7 @@ jobs:
               ;;
             whatsapp-template)
               title="Daily run failed: the WhatsApp template is not active"
-              advice="Check in WhatsApp Manager that \`resumo_diario\` is Active, in Portuguese (BR). The digest waits in the queue until it is."
+              advice="Check in WhatsApp Manager that \`resumo_diario_acoes\` is Active, in Portuguese (BR). The digest waits in the queue until it is."
               ;;
             whatsapp)
               title="Daily run failed: WhatsApp refused the digest"

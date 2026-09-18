@@ -61,4 +61,7 @@ whatsapp:
   # The Graph API version Meta's own examples use today. Moving to a newer one is a
   # deliberate change, not something to pick up by accident.
   api-url: https://graph.facebook.com/v25.0
+  # The digest links to the spreadsheet. Read from the sync's own setting rather than a
+  # new variable, so the message can never point at a different sheet from the one written.
+  spreadsheet-id: ${google.sheets.spreadsheet-id}
 
