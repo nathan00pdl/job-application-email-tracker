@@ -1,8 +1,16 @@
 # job-application-email-tracker
 
+[![CI](https://github.com/nathan00pdl/job-application-email-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/nathan00pdl/job-application-email-tracker/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/nathan00pdl/job-application-email-tracker/actions/workflows/codeql.yml/badge.svg)](https://github.com/nathan00pdl/job-application-email-tracker/actions/workflows/codeql.yml)
+[![License: MIT](https://img.shields.io/github/license/nathan00pdl/job-application-email-tracker)](./LICENSE)
+
 A daily job that scans a Gmail inbox for emails about job applications, classifies them with rules written into its own code, saves the results in PostgreSQL, copies them into a Google Sheet, and sends a daily summary over WhatsApp.
 
 It runs on GitHub Actions, with no server of its own. In production the database is on Neon, a hosted PostgreSQL on a free plan; for development, the same schema runs in a Docker container on your machine. Every service it uses is free.
+
+**Built with** Java 25 · Spring Boot 4.1.1 · Spring Data JPA · PostgreSQL 17 · Flyway ·
+JUnit 5 · Testcontainers · GitHub Actions — and the Gmail API, the Google Sheets API and
+the WhatsApp Cloud API.
 
 See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full design, and
 [`PRIVACY.md`](./PRIVACY.md) for what it reads from the mailbox, what it keeps and what
@@ -33,6 +41,15 @@ framework annotation at all.
 `application` holds the order of the steps and no business rules; `domain` holds the
 rules and knows nothing about order, storage or the network.
 
+## How emails are classified
+
+The classifier runs inside the application and matches the phrases hiring platforms use — "recebemos sua
+candidatura", "infelizmente não seguiremos", "gostaríamos de convidá-lo" — plus the
+sender's domain. There is no external service, no API key and no cost.
+
+Emails that are not about a job application are dropped without being recorded, so
+unrelated mail never reaches the database.
+
 ## Requirements
 
 - Java 25
@@ -59,15 +76,6 @@ docker compose up -d --wait
 Only PostgreSQL runs in a container. The application runs directly on the JVM, both
 locally and in CI — see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
-## How emails are classified
-
-The classifier runs inside the application and matches the phrases hiring platforms use — "recebemos sua
-candidatura", "infelizmente não seguiremos", "gostaríamos de convidá-lo" — plus the
-sender's domain. There is no external service, no API key and no cost.
-
-Emails that are not about a job application are dropped without being recorded, so
-unrelated mail never reaches the database.
-
 ## Build & test
 
 ```bash
@@ -82,89 +90,6 @@ on your `PATH`.
 
 The integration tests start their own temporary PostgreSQL container, so
 `docker compose` does not have to be running for them.
-
-## Run locally
-
-Flyway applies any pending migrations on startup:
-
-```bash
-set -a && source .env && set +a
-./mvnw spring-boot:run
-```
-
-Ten settings have no default value, on purpose: the application will not start if any of
-them is missing, rather than start and fail later against a service.
-
-| for | variables |
-|---|---|
-| the database | `DATASOURCE_USERNAME` · `DATASOURCE_PASSWORD` |
-| the mailbox | `GMAIL_CLIENT_ID` · `GMAIL_CLIENT_SECRET` · `GMAIL_REFRESH_TOKEN` |
-| the spreadsheet | `GOOGLE_SHEETS_CREDENTIALS` · `GOOGLE_SHEETS_SPREADSHEET_ID` |
-| WhatsApp | `WHATSAPP_ACCESS_TOKEN` · `WHATSAPP_PHONE_NUMBER_ID` · `WHATSAPP_RECIPIENT` |
-
-Three more are optional: `DATASOURCE_URL` defaults to the local container,
-`GOOGLE_SHEETS_SHEET_NAME` to `classifications`, and `RUN_ON_STARTUP` to `true`.
-
-## Running the scan
-
-With the database up and the environment loaded, this reads the mailbox and stores what
-it finds:
-
-```bash
-docker compose up -d --wait
-set -a && source .env && set +a
-./mvnw spring-boot:run
-```
-
-The application runs the scan once and exits — there is no server to leave running. It
-logs how many emails it read, how many it stored, how many it had already seen, and how
-many were not about a job application.
-
-To start it without scanning, set `RUN_ON_STARTUP=false`.
-
-## The daily run
-
-`.github/workflows/daily-run.yml` runs the scan every day at 03:17 in São Paulo (06:17 UTC),
-against a PostgreSQL database hosted on Neon rather than the local container. The hour is
-early on purpose: GitHub starts scheduled runs late, sometimes by hours, and the digest
-should reach the phone by 06:00. The run reads its configuration from these repository
-secrets:
-
-`DATASOURCE_URL` · `DATASOURCE_USERNAME` · `DATASOURCE_PASSWORD` ·
-`GMAIL_CLIENT_ID` · `GMAIL_CLIENT_SECRET` · `GMAIL_REFRESH_TOKEN` ·
-`GOOGLE_SHEETS_CREDENTIALS` · `GOOGLE_SHEETS_SPREADSHEET_ID` ·
-`WHATSAPP_ACCESS_TOKEN` · `WHATSAPP_PHONE_NUMBER_ID` · `WHATSAPP_RECIPIENT`
-
-The local `.env` keeps pointing at the local container, so a run started by hand never
-writes to the real database.
-
-**When a run fails**, a second job opens an issue labelled `daily-run-failure` and mentions
-you in it, so GitHub notifies you. The title names the cause when the run can identify it — an
-expired Gmail token, or WhatsApp refusing the token, access to the test number, or a
-template that is not active yet — and the body links to the run and says what to do. While
-that issue is open, later failures become comments on it rather than new issues. It
-carries no text from the log, because on a public repository issues are public too.
-
-To check that the alert reaches you, make a run fail on purpose. It stops before touching
-the mailbox or the database:
-
-```bash
-gh workflow run daily-run.yml -f fail_on_purpose=true
-```
-
-**Renewing the Gmail token.** While the OAuth app is in Testing, Google expires the refresh
-token seven days after it was generated, and the run fails with an issue titled *the Gmail
-token expired*. The seven days count from the moment the token was created in the
-Playground, not from when the secret was updated — Google shows that date nowhere, so it is
-worth noting. Generate a new one with steps 4 to 6 of [the mailbox](#the-mailbox), update
-the `GMAIL_REFRESH_TOKEN` secret and your `.env`, and start the workflow by hand to confirm:
-
-```bash
-gh workflow run daily-run.yml
-```
-
-Nothing is lost in the meantime: the next run reads from where the last one finished,
-however long ago that was.
 
 ## The mailbox
 
@@ -288,6 +213,84 @@ Setting it up, once, on Meta's side:
    `whatsapp_business_messaging` permission.
 5. Put the token, the test number's Phone Number ID and your number, digits only, in
    `.env` and in the repository secrets.
+
+## Running it
+
+With the three setups done, the database up and the environment loaded, this runs one
+scan: it reads the mailbox, stores what is about an application, mirrors it to the
+spreadsheet and sends the digest. Flyway applies any pending migrations first.
+
+```bash
+docker compose up -d --wait
+set -a && source .env && set +a
+./mvnw spring-boot:run
+```
+
+The application runs the scan once and exits — there is no server to leave running. It
+logs how many emails it read, how many it stored, how many it had already seen, and how
+many were not about a job application.
+
+The database is the local container, but the spreadsheet and WhatsApp are whatever `.env`
+points at: with real credentials there, a run started by hand writes to that sheet and
+sends a real message. To start the application without scanning, set
+`RUN_ON_STARTUP=false`.
+
+Ten settings have no default value, on purpose: the application will not start if any of
+them is missing, rather than start and fail later against a service.
+
+| for | variables |
+|---|---|
+| the database | `DATASOURCE_USERNAME` · `DATASOURCE_PASSWORD` |
+| the mailbox | `GMAIL_CLIENT_ID` · `GMAIL_CLIENT_SECRET` · `GMAIL_REFRESH_TOKEN` |
+| the spreadsheet | `GOOGLE_SHEETS_CREDENTIALS` · `GOOGLE_SHEETS_SPREADSHEET_ID` |
+| WhatsApp | `WHATSAPP_ACCESS_TOKEN` · `WHATSAPP_PHONE_NUMBER_ID` · `WHATSAPP_RECIPIENT` |
+
+Three more are optional: `DATASOURCE_URL` defaults to the local container,
+`GOOGLE_SHEETS_SHEET_NAME` to `classifications`, and `RUN_ON_STARTUP` to `true`.
+
+## The daily run
+
+`.github/workflows/daily-run.yml` runs the scan every day at 03:17 in São Paulo (06:17 UTC),
+against a PostgreSQL database hosted on Neon rather than the local container. The hour is
+early on purpose: GitHub starts scheduled runs late, sometimes by hours, and the digest
+should reach the phone by 06:00. The run reads its configuration from these repository
+secrets:
+
+`DATASOURCE_URL` · `DATASOURCE_USERNAME` · `DATASOURCE_PASSWORD` ·
+`GMAIL_CLIENT_ID` · `GMAIL_CLIENT_SECRET` · `GMAIL_REFRESH_TOKEN` ·
+`GOOGLE_SHEETS_CREDENTIALS` · `GOOGLE_SHEETS_SPREADSHEET_ID` ·
+`WHATSAPP_ACCESS_TOKEN` · `WHATSAPP_PHONE_NUMBER_ID` · `WHATSAPP_RECIPIENT`
+
+The local `.env` keeps pointing at the local container, so a run started by hand never
+writes to the real database.
+
+**When a run fails**, a second job opens an issue labelled `daily-run-failure` and mentions
+you in it, so GitHub notifies you. The title names the cause when the run can identify it — an
+expired Gmail token, or WhatsApp refusing the token, access to the test number, or a
+template that is not active yet — and the body links to the run and says what to do. While
+that issue is open, later failures become comments on it rather than new issues. It
+carries no text from the log, because on a public repository issues are public too.
+
+To check that the alert reaches you, make a run fail on purpose. It stops before touching
+the mailbox or the database:
+
+```bash
+gh workflow run daily-run.yml -f fail_on_purpose=true
+```
+
+**Renewing the Gmail token.** While the OAuth app is in Testing, Google expires the refresh
+token seven days after it was generated, and the run fails with an issue titled *the Gmail
+token expired*. The seven days count from the moment the token was created in the
+Playground, not from when the secret was updated — Google shows that date nowhere, so it is
+worth noting. Generate a new one with steps 4 to 6 of [the mailbox](#the-mailbox), update
+the `GMAIL_REFRESH_TOKEN` secret and your `.env`, and start the workflow by hand to confirm:
+
+```bash
+gh workflow run daily-run.yml
+```
+
+Nothing is lost in the meantime: the next run reads from where the last one finished,
+however long ago that was.
 
 ## Checking against the real mailbox
 
