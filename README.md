@@ -4,7 +4,9 @@ A daily job that scans a Gmail inbox for emails about job applications, classifi
 
 It runs on GitHub Actions, with no server of its own. In production the database is on Neon, a hosted PostgreSQL on a free plan; for development, the same schema runs in a Docker container on your machine. Every service it uses is free.
 
-See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full design.
+See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full design, and
+[`PRIVACY.md`](./PRIVACY.md) for what it reads from the mailbox, what it keeps and what
+leaves for WhatsApp.
 
 ## Architecture
 
@@ -40,7 +42,9 @@ Maven itself is not needed: `./mvnw` downloads and runs the exact version set in
 
 ## Local setup
 
-Create your `.env` from the template and fill in the blank password:
+Create your `.env` from the template. It needs a password for the local database, and the
+credentials that come out of the three setups further down: [the mailbox](#the-mailbox),
+[the spreadsheet](#the-spreadsheet) and [the WhatsApp digest](#the-whatsapp-digest).
 
 ```bash
 cp .env.example .env
@@ -57,7 +61,7 @@ locally and in CI — see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ## How emails are classified
 
-The classifier runs locally and matches the phrases hiring platforms use — "recebemos sua
+The classifier runs inside the application and matches the phrases hiring platforms use — "recebemos sua
 candidatura", "infelizmente não seguiremos", "gostaríamos de convidá-lo" — plus the
 sender's domain. There is no external service, no API key and no cost.
 
@@ -88,10 +92,18 @@ set -a && source .env && set +a
 ./mvnw spring-boot:run
 ```
 
-The database username and password have no default value: the application will not
-start if `DATASOURCE_USERNAME` and `DATASOURCE_PASSWORD` are not set. The same holds for
-`GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET` and `GMAIL_REFRESH_TOKEN`, and for
-`WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` and `WHATSAPP_RECIPIENT`.
+Ten settings have no default value, on purpose: the application will not start if any of
+them is missing, rather than start and fail later against a service.
+
+| for | variables |
+|---|---|
+| the database | `DATASOURCE_USERNAME` · `DATASOURCE_PASSWORD` |
+| the mailbox | `GMAIL_CLIENT_ID` · `GMAIL_CLIENT_SECRET` · `GMAIL_REFRESH_TOKEN` |
+| the spreadsheet | `GOOGLE_SHEETS_CREDENTIALS` · `GOOGLE_SHEETS_SPREADSHEET_ID` |
+| WhatsApp | `WHATSAPP_ACCESS_TOKEN` · `WHATSAPP_PHONE_NUMBER_ID` · `WHATSAPP_RECIPIENT` |
+
+Three more are optional: `DATASOURCE_URL` defaults to the local container,
+`GOOGLE_SHEETS_SHEET_NAME` to `classifications`, and `RUN_ON_STARTUP` to `true`.
 
 ## Running the scan
 
@@ -141,9 +153,11 @@ gh workflow run daily-run.yml -f fail_on_purpose=true
 ```
 
 **Renewing the Gmail token.** While the OAuth app is in Testing, Google expires the refresh
-token every seven days, and the run fails with an issue titled *the Gmail token expired*.
-Generate a new token, update the `GMAIL_REFRESH_TOKEN` secret, and start the workflow by
-hand to confirm:
+token seven days after it was generated, and the run fails with an issue titled *the Gmail
+token expired*. The seven days count from the moment the token was created in the
+Playground, not from when the secret was updated — Google shows that date nowhere, so it is
+worth noting. Generate a new one with steps 4 to 6 of [the mailbox](#the-mailbox), update
+the `GMAIL_REFRESH_TOKEN` secret and your `.env`, and start the workflow by hand to confirm:
 
 ```bash
 gh workflow run daily-run.yml
@@ -151,6 +165,33 @@ gh workflow run daily-run.yml
 
 Nothing is lost in the meantime: the next run reads from where the last one finished,
 however long ago that was.
+
+## The mailbox
+
+The mailbox is read through the Gmail API with the `gmail.readonly` scope — the
+application can read and nothing else. Setting it up, once, on Google's side:
+
+1. In the [Google Cloud console](https://console.cloud.google.com/), create a project and
+   enable the **Gmail API**.
+2. Configure the OAuth consent screen: user type **External**, publishing status
+   **Testing**, and your own Gmail account added as a **test user**.
+3. Create an **OAuth client ID** of type **Web application**, with
+   `https://developers.google.com/oauthplayground` as an authorised redirect URI. Keep the
+   client ID and the client secret.
+4. Open the [OAuth Playground](https://developers.google.com/oauthplayground). In its
+   settings (the gear icon), tick **Use your own OAuth credentials** and paste them, set
+   **Access type** to *Offline* and tick **Force prompt: Consent screen**.
+5. In *Step 1*, type the scope `https://www.googleapis.com/auth/gmail.readonly`, choose
+   **Authorize APIs**, sign in with the mailbox's account and allow it — past the warning
+   that Google has not verified the app, which is expected for an app in Testing.
+6. In *Step 2*, choose **Exchange authorization code for tokens** and copy the
+   **refresh token**.
+7. Put the client ID, the client secret and the refresh token in `.env` and in the
+   repository secrets.
+
+The app stays in Testing on purpose. Leaving it would take a verified domain of its own,
+and the price of staying is a refresh token that lasts seven days — see
+[renewing the Gmail token](#the-daily-run).
 
 ## The spreadsheet
 
@@ -273,3 +314,7 @@ set -a && source .env && set +a
 Without `-Dreport.dir` it writes nothing to disk and prints only the summary and the kept
 emails. With it, the full report — including the ignored ones, which is where a missed
 application shows up — goes to a file in that directory, outside the repository.
+
+## License
+
+[MIT](./LICENSE).
