@@ -405,6 +405,85 @@ class EmailClassifierTest {
                 .isEqualTo(UpdateType.INTERVIEW_INVITE);
     }
 
+    /**
+     * Confirmations that name the next step. Read as an interview and an information
+     * request, three of four items in a morning's list of things to do were not tasks at
+     * all: the interview was only a possible stage, and the salary was the candidate's own,
+     * repeated back. The Ericsson one was not kept at all.
+     */
+    @ParameterizedTest(name = "{0}: \"{1}\"")
+    @CsvSource(delimiter = '|', value = {
+            "jobgether.com | Next Steps for Your Job Application: Backend Developer (Java/Spring Boot) at Jobgether | Thank you for applying to Backend Developer. Your profile is currently under review. We will select the top matching candidates for preliminary screening interviews. If you are among them, we will contact you to arrange a convenient time.",
+            "info.geekhunter.com.br | Detalhes sobre sua candidatura na vaga Desenvolvedor(a) Backend Java Júnior | Sua candidatura para a vaga foi recebida com sucesso. Abaixo, o registro da pretensão salarial definida por você para esta posição: CLT R$ 7.000,00.",
+            "ericsson.com | Thank you for your application! | Thank you for your interest in this position! We have received your application to Java Developer. Someone will be in touch shortly to let you know if you will be progressing to the interview stage.",
+            "ses-mail.inhire.app | [CashMe] Olá, vamos falar sobre o seu processo na CashMe? | Estamos muito felizes em saber do seu interesse em fazer parte da força que impulsiona para a vaga. O nosso time analisará as suas vivências e experiências."
+    })
+    void readsAConfirmationThatNamesTheNextStepAsAConfirmation(
+            String senderDomain, String subject, String body) {
+        assertThat(classify(senderDomain, subject, body)).get()
+                .extracting(EmailClassification::updateType)
+                .isEqualTo(UpdateType.APPLICATION_RECEIVED);
+    }
+
+    /**
+     * The application is not forwarded to the company until it is confirmed. Read as a
+     * confirmation, it would have been labelled as one of the emails that ask nothing.
+     */
+    @Test
+    void readsARequestToConfirmTheApplicationAsARequest() {
+        assertThat(classify("info.geekhunter.com.br",
+                "Confirme sua candidatura para a vaga Desenvolvedor(a) Backend Java Júnior",
+                "Registramos sua candidatura. Para encaminhá-la à empresa, é necessário validar "
+                        + "seu interesse. Confirme aqui."))
+                .get()
+                .satisfies(classification -> {
+                    assertThat(classification.updateType()).isEqualTo(UpdateType.INFO_REQUEST);
+                    assertThat(classification.platform()).isEqualTo("GeekHunter");
+                });
+    }
+
+    /**
+     * A rejection after an interview thanks the candidate for it. With the bare word
+     * "entrevista" this was read as an invitation; with narrower phrases it fell to
+     * {@code OTHER}, until its own way of saying no was on the list.
+     */
+    @Test
+    void readsARejectionThatThanksForTheInterviewAsARejection() {
+        assertThat(classify("btgpactual.com",
+                "BTG Pactual | Retorno do Processo Seletivo da Vaga Desenvolvedor(a) de Software Backend",
+                "Gostaríamos de agradecer o seu interesse e pelo tempo disponível para a nossa "
+                        + "entrevista. Após uma análise cuidadosa do seu perfil, decidimos não seguir "
+                        + "com a sua participação no processo."))
+                .get()
+                .extracting(EmailClassification::updateType)
+                .isEqualTo(UpdateType.REJECTION);
+    }
+
+    /** Narrower phrases must still hear a real invitation, in either language. */
+    @ParameterizedTest(name = "\"{0}\"")
+    @ValueSource(strings = {
+            "Gostaríamos de convidá-lo para uma entrevista na próxima semana.",
+            "Sobre sua candidatura: convite para entrevista",
+            "Vamos agendar sua entrevista com o time técnico?",
+            "We would like to invite you to an interview for the Backend role.",
+            "Please use the link below to schedule your interview."
+    })
+    void stillHearsARealInterviewInvitation(String body) {
+        assertThat(classify("greenhouse.io", "Sua candidatura", body)).get()
+                .extracting(EmailClassification::updateType)
+                .isEqualTo(UpdateType.INTERVIEW_INVITE);
+    }
+
+    /** A question about salary is still a request for information. */
+    @Test
+    void stillHearsAQuestionAboutSalary() {
+        assertThat(classify("gupy.com.br", "Próxima etapa",
+                "Antes de seguirmos, informe sua pretensão salarial respondendo este e-mail."))
+                .get()
+                .extracting(EmailClassification::updateType)
+                .isEqualTo(UpdateType.INFO_REQUEST);
+    }
+
     private Optional<EmailClassification> classify(String senderDomain, String subject) {
         return classify(senderDomain, subject, "corpo");
     }
