@@ -115,8 +115,19 @@ class MetaWhatsAppAdapterTest {
         List<String> values = parametersOf(body);
         assertThat(values).containsExactlyElementsOf(
                 DigestMessage.forDigest(digest(), SENT_AT, SPREADSHEET_ID).values());
-        assertThat(values.get(3)).endsWith("https://mail.google.com/mail/u/0/#all/interview-id");
         assertThat(values.get(14)).contains(SPREADSHEET_ID);
+    }
+
+    /**
+     * What leaves for Meta always fits its limit. Meta refuses a longer message whole, and
+     * a refused message is a day with no digest at all.
+     */
+    @Test
+    void neverSendsAMessageLongerThanMetaAccepts() {
+        adapter().send(digest());
+
+        List<String> values = parametersOf(JSON.readTree(received.get().body()));
+        assertThat(DigestMessage.lengthOf(values)).isLessThanOrEqualTo(DigestMessage.MAX_LENGTH);
     }
 
     /** A day with no news goes out through the same template, all fifteen blanks filled. */

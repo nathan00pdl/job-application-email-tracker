@@ -19,40 +19,23 @@ import com.nathanpaiva.jobtracker.domain.UpdateType;
  * Fills the blanks of the {@code resumo_diario_acoes} template from a {@link DailyDigest}.
  *
  * <p>A WhatsApp message that the business sends first has to be a template Meta approved
- * in advance. Its text is fixed; only the blanks change from one day to the next. This is
- * the approved text, and this class fills its fifteen blanks, in order:
- *
- * <pre>
- * Resumo diário das suas candidaturas, referente a {{1}}.
- *
- * Este resumo reúne os e-mails sobre processos seletivos que chegaram desde o envio
- * anterior, já classificados de forma automática.
- *
- * Chegaram {{2}} e-mails sobre candidaturas. Divisão por tipo de retorno: {{3}}.
- *
- * Pedem sua atenção, do mais importante para o menos importante. Cada item mostra o tipo
- * de retorno, a plataforma ou o domínio de quem enviou, a data de chegada e o link que
- * abre o e-mail direto no Gmail:
- * 1) {{4}}
- * …
- * 10) {{13}}
- *
- * Além desses, também pedem atenção: {{14}}.
- *
- * Propostas, testes técnicos, entrevistas, pedidos de informação e e-mails com prazo entram
- * na lista. Confirmações de inscrição, recusas e e-mails sem categoria não entram, mas
- * aparecem na contagem acima e ficam registrados na planilha de acompanhamento: {{15}}
- *
- * Vagas sem item aparecem com um traço. Mensagem automática, enviada uma vez por dia.
- * </pre>
+ * in advance. Its text is fixed; only the blanks change from one day to the next. The
+ * approved text is {@link #TEXT}, and this class fills its fifteen blanks.
  *
  * <p>One template for every day, so its shape never changes: a quiet day has a dash in each
  * of the ten places, and a busy one says how many more there are. The fixed text cannot
  * lose a line, which is why the places are always there.
  *
+ * <p><b>The filled message must fit in {@value #MAX_LENGTH} characters.</b> Meta counts the
+ * fixed text and the values together, and refuses a longer message outright — code 132005,
+ * "Translated text too long" — so a day with too much to list would deliver nothing at
+ * all. This class measures the message it is about to send, and lists only the emails that
+ * fit; the rest are counted in "além desses". A shorter list is a message; a longer one
+ * is none.
+ *
  * <p>The template and this class are tied: a change on Meta's side means a change here,
- * and the other way round. What has to match exactly is the name, the language and the
- * number of blanks.
+ * and the other way round. What has to match exactly is the name, the language, the number
+ * of blanks — and, for the measuring to be right, the text itself.
  *
  * <p>The words are Portuguese because a person in Brazil reads them, inside a message
  * whose fixed text is Portuguese too. Like the phrases the classifier looks for, they are
@@ -70,8 +53,40 @@ final class DigestMessage {
     static final String TEMPLATE = "resumo_diario_acoes";
     static final String LANGUAGE = "pt_BR";
 
+    /**
+     * The template exactly as approved, blanks included. Kept here, and not only on Meta's
+     * side, because it is what the length of the filled message is measured against.
+     */
+    static final String TEXT = """
+            Resumo diário das suas candidaturas, referente a {{1}}.
+
+            Este resumo reúne os e-mails sobre processos seletivos que chegaram desde o envio anterior, já classificados de forma automática.
+
+            Chegaram {{2}} e-mails sobre candidaturas. Divisão por tipo de retorno: {{3}}.
+
+            Pedem sua atenção, do mais importante para o menos importante. Cada item mostra o tipo de retorno, a plataforma ou o domínio de quem enviou, a data de chegada e o link que abre o e-mail direto no Gmail:
+            1) {{4}}
+            2) {{5}}
+            3) {{6}}
+            4) {{7}}
+            5) {{8}}
+            6) {{9}}
+            7) {{10}}
+            8) {{11}}
+            9) {{12}}
+            10) {{13}}
+
+            Além desses, também pedem atenção: {{14}}.
+
+            Propostas, testes técnicos, entrevistas, pedidos de informação e e-mails com prazo entram na lista. Confirmações de inscrição, recusas e e-mails sem categoria não entram, mas aparecem na contagem acima e ficam registrados na planilha de acompanhamento: {{15}}
+
+            Vagas sem item aparecem com um traço. Mensagem automática, enviada uma vez por dia.""";
+
     /** How many emails the template can name; the rest are counted in blank fourteen. */
     static final int PLACES = 10;
+
+    /** The most characters Meta accepts in the body, fixed text and values together. */
+    static final int MAX_LENGTH = 1024;
 
     /**
      * Opens one message in Gmail on the web, for the account signed in first. The id is
@@ -110,6 +125,9 @@ final class DigestMessage {
     /** What goes in a place with no email in it. */
     private static final String EMPTY_PLACE = "—";
 
+    /** The counts by kind, when there is no room left for them. */
+    private static final String SEE_THE_SPREADSHEET = "veja a planilha";
+
     /**
      * How each kind of update is named, and the order the counts are listed in.
      *
@@ -140,25 +158,64 @@ final class DigestMessage {
      * @param spreadsheetId the id of the spreadsheet the classifications are mirrored to
      */
     static Template forDigest(DailyDigest digest, Instant now, String spreadsheetId) {
+        return forDigest(digest, now, spreadsheetId, MAX_LENGTH);
+    }
+
+    /**
+     * The same, against a limit of the caller's choosing — so a test can check what the
+     * list holds and in what order without the limit of today's text deciding it.
+     *
+     * <p>What gives way, in the order that loses least: first the listed emails, the least
+     * important one at a time, each counted in "além desses" so nothing that waits on the
+     * reader goes unmentioned; then, if the message still does not fit with none listed,
+     * the counts by kind, which the spreadsheet holds anyway. The period, the total and the
+     * link to the spreadsheet always stay.
+     */
+    static Template forDigest(DailyDigest digest, Instant now, String spreadsheetId, int maxLength) {
         Objects.requireNonNull(digest, "digest must not be null");
         Objects.requireNonNull(now, "now must not be null");
         Objects.requireNonNull(spreadsheetId, "spreadsheetId must not be null");
 
+        int listed = Math.min(digest.actions().size(), PLACES);
+        List<String> values = values(digest, now, spreadsheetId, listed, byKind(digest));
+        while (listed > 0 && lengthOf(values) > maxLength) {
+            listed--;
+            values = values(digest, now, spreadsheetId, listed, byKind(digest));
+        }
+        if (lengthOf(values) > maxLength) {
+            values = values(digest, now, spreadsheetId, 0, SEE_THE_SPREADSHEET);
+        }
+        return new Template(TEMPLATE, values);
+    }
+
+    /** The fifteen values, with the first {@code listed} actions in their places. */
+    private static List<String> values(DailyDigest digest, Instant now, String spreadsheetId,
+                                       int listed, String counts) {
         List<String> values = new ArrayList<>();
         values.add(period(digest, now));
         values.add(String.valueOf(digest.total()));
-        values.add(byKind(digest));
+        values.add(counts);
 
         List<ActionNeeded> actions = digest.actions();
         for (int place = 0; place < PLACES; place++) {
-            values.add(place < actions.size() ? item(actions.get(place)) : EMPTY_PLACE);
+            values.add(place < listed ? item(actions.get(place)) : EMPTY_PLACE);
         }
 
-        int beyond = actions.size() - PLACES;
-        values.add(beyond > 0 ? "mais " + beyond + ", veja a planilha" : NOTHING);
+        // Just the number: the fixed text points at the spreadsheet in the next sentence.
+        int beyond = actions.size() - listed;
+        values.add(beyond > 0 ? "mais " + beyond : NOTHING);
         values.add(SPREADSHEET.formatted(spreadsheetId));
 
-        return new Template(TEMPLATE, values.stream().map(DigestMessage::oneLine).toList());
+        return values.stream().map(DigestMessage::oneLine).toList();
+    }
+
+    /** How long the message is once these values fill {@link #TEXT}, as Meta counts it. */
+    static int lengthOf(List<String> values) {
+        String message = TEXT;
+        for (int blank = values.size(); blank >= 1; blank--) {
+            message = message.replace("{{" + blank + "}}", values.get(blank - 1));
+        }
+        return message.length();
     }
 
     /**
