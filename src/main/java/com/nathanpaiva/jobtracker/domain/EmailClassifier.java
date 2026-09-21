@@ -80,7 +80,8 @@ public final class EmailClassifier {
             Map.entry("glassdoor.com", "Glassdoor"), Map.entry("vagas.com.br", "Vagas.com"),
             Map.entry("catho.com.br", "Catho"), Map.entry("infojobs.com.br", "InfoJobs"),
             Map.entry("99jobs.com", "99Jobs"),
-            Map.entry("programathor.com.br", "ProgramaThor"));
+            Map.entry("programathor.com.br", "ProgramaThor"),
+            Map.entry("geekhunter.com.br", "GeekHunter"), Map.entry("jobgether.com", "Jobgether"));
 
     /**
      * Phrases showing an application already exists.
@@ -104,7 +105,8 @@ public final class EmailClassifier {
             "agradecemos seu interesse em nossa oportunidade",
             "retorno do processo seletivo", "retorno do seu processo seletivo",
             "inscricao via",
-            "we received your application", "thank you for applying",
+            "we received your application", "we have received your application",
+            "thank you for applying", "thank you for your application",
             "your application for", "your application has", "you applied",
             "regarding your application", "application status");
 
@@ -278,15 +280,30 @@ public final class EmailClassifier {
                 "seguimos com outro", "outro candidato", "nao teremos como avancar",
                 "unfortunately", "not moving forward", "will not be proceeding",
                 "decided to move forward with other", "processo seletivo foi descontinuado",
-                "nao seguira conosco"));
+                "nao seguira conosco", "decidimos nao seguir"));
+        // Invitations, not the word. A confirmation names the interview as the next step —
+        // "we will select candidates for screening interviews", "progressing to the
+        // interview stage" — and with the bare word it was read as one, and listed as a
+        // task the reader did not have.
         phrases.put(UpdateType.INTERVIEW_INVITE, Set.of(
-                "entrevista", "conversa com", "bate-papo", "agendar um horario",
-                "interview", "schedule a call", "meet the team"));
+                "convite para entrevista", "convite para uma entrevista",
+                "convida-lo para uma entrevista", "convida-la para uma entrevista",
+                "agendar uma entrevista", "agendar sua entrevista", "agendar a entrevista",
+                "entrevista agendada", "sua entrevista",
+                "conversa com", "bate-papo", "agendar um horario",
+                "invite you to an interview", "invite you for an interview",
+                "interview invitation", "schedule an interview", "schedule your interview",
+                "your interview", "schedule a call", "meet the team"));
         phrases.put(UpdateType.TECHNICAL_TEST, Set.of(
                 "teste tecnico", "desafio tecnico", "desafio de codigo", "code challenge",
                 "technical test", "take-home", "assessment", "hackerrank", "codility"));
+        // A question about salary, not the word: a confirmation can repeat the expectation
+        // the candidate already gave, and that asks nothing.
         phrases.put(UpdateType.INFO_REQUEST, Set.of(
-                "pretensao salarial", "sua disponibilidade", "envie os documentos",
+                "qual sua pretensao salarial", "qual a sua pretensao salarial",
+                "informe sua pretensao salarial", "informar sua pretensao salarial",
+                "confirme sua candidatura", "validar seu interesse",
+                "sua disponibilidade", "envie os documentos",
                 "precisamos de algumas informacoes", "preencha o formulario",
                 "salary expectation", "your availability", "fill out the form",
                 "we need some information", "complete sua inscricao",
@@ -299,7 +316,9 @@ public final class EmailClassifier {
                 "we received your application", "thank you for applying",
                 "application received", "obrigado por se candidatar",
                 "inscricao via", "confirmacao de inscricao", "inscricao recebida",
-                "sua candidatura para", "mantenha-se informado sobre sua candidatura"));
+                "sua candidatura para", "mantenha-se informado sobre sua candidatura",
+                "thank you for your application", "we have received your application",
+                "saber do seu interesse"));
         return phrases;
     }
 }
