@@ -118,7 +118,8 @@ jobs:
       #
       # The WhatsApp words come from Meta's error codes, as MetaWhatsAppAdapter reports
       # them: 190 is a token Meta no longer accepts, 100 a token that cannot reach the test
-      # number, and 132001 a template with no active version in the language asked for.
+      # number, 132001 a template with no active version in the language asked for, and
+      # 132005 a message that came out longer than Meta accepts once its blanks are filled.
       - name: Name the cause
         id: cause
         if: failure()
@@ -136,6 +137,8 @@ jobs:
             cause=whatsapp-access
           elif grep -qs "WhatsApp refused the digest: .*code 132001:" "$log"; then
             cause=whatsapp-template
+          elif grep -qs "WhatsApp refused the digest: .*code 132005:" "$log"; then
+            cause=whatsapp-too-long
           elif grep -qs "WhatsApp refused the digest" "$log"; then
             cause=whatsapp
           else
@@ -189,6 +192,10 @@ jobs:
             whatsapp-template)
               title="Daily run failed: the WhatsApp template is not active"
               advice="Check in WhatsApp Manager that \`resumo_diario_acoes\` is Active, in Portuguese (BR). The digest waits in the queue until it is."
+              ;;
+            whatsapp-too-long)
+              title="Daily run failed: the WhatsApp message is too long"
+              advice="Meta accepts at most 1,024 characters once the blanks are filled. \`DigestMessage\` trims the list to fit, so this means the template's fixed text changed or grew: check that \`DigestMessage.TEXT\` matches the template in WhatsApp Manager."
               ;;
             whatsapp)
               title="Daily run failed: WhatsApp refused the digest"

@@ -189,9 +189,15 @@ Entrevista · URGENTE · Gupy · 17/09 · https://mail.google.com/mail/u/0/#all/
 ```
 
 Confirmations and rejections are only counted: on a day of many applications they are most
-of the mail, and would bury the one email that matters. Ten emails fit; beyond that the
-message says how many more, and the spreadsheet has them all. A quiet day keeps the same
-shape, with a dash in each place.
+of the mail, and would bury the one email that matters. The template has ten places;
+beyond them the message says how many more, and the spreadsheet has them all. A quiet day
+keeps the same shape, with a dash in each place.
+
+Meta accepts at most **1,024 characters once the blanks are filled** and refuses a longer
+message whole, so the list holds only what fits: the least important emails give way first
+and are counted as "mais N", and if the message still does not fit, the counts by kind give
+way to "veja a planilha". A shorter list still arrives; a message that is too long never
+would.
 
 The message holds counts, dates, platform or sender domains and links to the emails —
 never a subject, a sender's address or any text from a message. The classifications it
