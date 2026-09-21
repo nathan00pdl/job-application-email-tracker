@@ -250,10 +250,11 @@ Three more are optional: `DATASOURCE_URL` defaults to the local container,
 
 ## The daily run
 
-`.github/workflows/daily-run.yml` runs the scan every day at 03:17 in São Paulo (06:17 UTC),
+`.github/workflows/daily-run.yml` runs the scan every day at 02:17 in São Paulo (05:17 UTC),
 against a PostgreSQL database hosted on Neon rather than the local container. The hour is
-early on purpose: GitHub starts scheduled runs late, sometimes by hours, and the digest
-should reach the phone by 06:00. The run reads its configuration from these repository
+early on purpose: GitHub starts scheduled runs late — in practice between four and a half
+and five and a half hours — and the digest should still reach the phone early in the
+morning. The run reads its configuration from these repository
 secrets:
 
 `DATASOURCE_URL` · `DATASOURCE_USERNAME` · `DATASOURCE_PASSWORD` ·
