@@ -484,6 +484,92 @@ class EmailClassifierTest {
                 .isEqualTo(UpdateType.INFO_REQUEST);
     }
 
+    /**
+     * Two emails that each asked for something and were read as news that asks nothing: an
+     * application that only counts once it is confirmed, and a profile that only competes
+     * once its tests are done.
+     */
+    @ParameterizedTest(name = "{0}: \"{1}\"")
+    @CsvSource(delimiter = ';', value = {
+            "job.recrut.ai ; [DATUM] Nathan, conclua sua inscrição em Pessoa Desenvolvedora Java ; Clique no botão Concluir inscrição para terminar sua inscrição em [XV0CV0] Pessoa Desenvolvedora Java - Júnior. ; INFO_REQUEST",
+            "bairesdev.com ; BairesDev | Nathan, complete seus testes para se destacar ; Notamos que você se candidatou novamente através de INDI. Seu perfil já está ativo. O próximo passo importante é completar seus testes. ; TECHNICAL_TEST"
+    })
+    void readsAnEmailThatAsksForSomethingAsATask(
+            String senderDomain, String subject, String body, UpdateType expected) {
+        assertThat(classify(senderDomain, subject, body)).get()
+                .extracting(EmailClassification::updateType)
+                .isEqualTo(expected);
+    }
+
+    /**
+     * Confirmations from senders no domain covers, in the words each of them uses. The Agi
+     * one was dropped: "confirmação de candidatura" says vaga, which is what separates it
+     * from the course enrolment the same company also sends.
+     */
+    @ParameterizedTest(name = "{0}: \"{1}\"")
+    @CsvSource(delimiter = ';', value = {
+            "agi.com.br ; Agi | Confirmação de candidatura Pleno Backend Software Engineer ; Você realizou a sua inscrição para a vaga Pleno Backend Software Engineer. Vamos avaliar o seu perfil.",
+            "job.recrut.ai ; [DATUM] Nathan, sua inscrição foi confirmada com sucesso ; Sua inscrição foi confirmada para a oportunidade.",
+            "gupy.com.br ; Obrigada pelo interesse em fazer parte do nosso time! ; Recebemos seu cadastro e avaliaremos seu perfil.",
+            "jobgether.com ; Follow-up on your application to Backend Developer ; Thanks again for applying to Backend Developer. Your profile is under review, and we will contact you if it moves forward."
+    })
+    void readsAConfirmationFromAnyOfThemAsAConfirmation(
+            String senderDomain, String subject, String body) {
+        assertThat(classify(senderDomain, subject, body)).get()
+                .extracting(EmailClassification::updateType)
+                .isEqualTo(UpdateType.APPLICATION_RECEIVED);
+    }
+
+    /**
+     * This repository's own notifications quote the phrases the classifier looks for: one
+     * of them carried "you applied" in a pull request title and was stored as an
+     * application. GitHub never writes about a job application here.
+     */
+    @Test
+    void ignoresThisProjectsOwnNotifications() {
+        assertThat(classify("github.com",
+                "Re: [nathan00pdl/job-application-email-tracker] fix: do not take a footer's "
+                        + "\"you applied\" as evidence (PR #67)",
+                "A company adds one of these to everything it sends to people who once applied."))
+                .isEmpty();
+
+        assertThat(classify("notifications.github.com", "Recebemos sua candidatura",
+                "Texto de teste num pull request.")).isEmpty();
+    }
+
+    /**
+     * "Você se candidatou" is evidence in one email and only an explanation in another: the
+     * same platform that sends a task also sends a password reset that opens by saying why
+     * it is writing. The explanation is taken out before evidence is looked for, exactly as
+     * the English footer is.
+     */
+    @Test
+    void ignoresAPasswordResetThatExplainsWhyItIsWriting() {
+        assertThat(classify("info.geekhunter.com.br", "Instruções para ajuste da sua senha",
+                "Oi Nathan. Você se candidatou recentemente a uma vaga pelo sistema da "
+                        + "GeekHunter. Para acompanhar suas candidaturas, ajuste sua senha."))
+                .isEmpty();
+    }
+
+    /** A score to read is not a test to take. */
+    @Test
+    void readsAnAssessmentReportAsNewsRatherThanATest() {
+        assertThat(classify("jobgether.com", "Follow-up on your application",
+                "Thanks again for applying. Our system generated a detailed Assessment Report, "
+                        + "now available on your profile."))
+                .get()
+                .extracting(EmailClassification::updateType)
+                .isEqualTo(UpdateType.APPLICATION_RECEIVED);
+    }
+
+    /** A course is not a vacancy: the enrolment the same company sends is still ignored. */
+    @Test
+    void stillIgnoresAnEnrolmentInACourse() {
+        assertThat(classify("agi.com.br", "Inscrição confirmada | Formação de Devs Nativos em IA",
+                "Sua inscrição na formação foi confirmada. Boas-vindas à turma!"))
+                .isEmpty();
+    }
+
     private Optional<EmailClassification> classify(String senderDomain, String subject) {
         return classify(senderDomain, subject, "corpo");
     }
