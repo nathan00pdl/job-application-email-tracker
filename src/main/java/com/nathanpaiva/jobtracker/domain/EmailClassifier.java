@@ -67,6 +67,16 @@ public final class EmailClassifier {
     private static final Set<String> MARKETING_ADDRESSES = Set.of("inbound.gupy.com.br");
 
     /**
+     * Senders that never write about a job application, whatever their words.
+     *
+     * <p>Unlike {@link #MARKETING_ADDRESSES}, this is a veto: nothing from here is kept.
+     * GitHub is on it because this repository's own pull requests are about the phrases
+     * below — one notification quoted "you applied" from a pull request title and was
+     * stored as an application. The project talking about itself must not look like news.
+     */
+    private static final Set<String> NEVER_ABOUT_AN_APPLICATION = Set.of("github.com");
+
+    /**
      * Job boards: sites where openings are advertised.
      *
      * <p>Their name is worth recording when an email does come from one, but their
@@ -104,7 +114,9 @@ public final class EmailClassifier {
             "agradecemos seu interesse na vaga",
             "agradecemos seu interesse em nossa oportunidade",
             "retorno do processo seletivo", "retorno do seu processo seletivo",
-            "inscricao via",
+            "inscricao via", "confirmacao de candidatura", "sua inscricao para a vaga",
+            "voce se candidatou",
+            "thanks for applying", "thanks again for applying",
             "we received your application", "we have received your application",
             "thank you for applying", "thank you for your application",
             "your application for", "your application has", "you applied",
@@ -151,7 +163,8 @@ public final class EmailClassifier {
      */
     private static final Set<String> FOOTER_PHRASES = Set.of(
             "this email because you applied", "this email, because you applied",
-            "this message because you applied");
+            "this message because you applied",
+            "se candidatou recentemente a uma vaga");
 
     /**
      * Read in this order, first match wins, and the order carries meaning. A rejection
@@ -193,6 +206,9 @@ public final class EmailClassifier {
      * Evidence is looked for with the footer taken out.
      */
     private static boolean isAboutAnApplication(String text, String senderDomain) {
+        if (isOneOf(NEVER_ABOUT_AN_APPLICATION, senderDomain)) {
+            return false;
+        }
         if (ADVERT_PHRASES.stream().anyMatch(text::contains)) {
             return false;
         }
@@ -232,6 +248,13 @@ public final class EmailClassifier {
     private static String platformOf(String senderDomain) {
         String ats = nameFrom(ATS_BY_DOMAIN, senderDomain);
         return ats != null ? ats : nameFrom(JOB_BOARD_BY_DOMAIN, senderDomain);
+    }
+
+    /** Whether the sender is one of these domains, or a subdomain of one. */
+    private static boolean isOneOf(Set<String> domains, String senderDomain) {
+        String domain = normalize(senderDomain);
+        return domains.stream()
+                .anyMatch(known -> domain.equals(known) || domain.endsWith("." + known));
     }
 
     private static String nameFrom(Map<String, String> byDomain, String senderDomain) {
@@ -296,7 +319,12 @@ public final class EmailClassifier {
                 "your interview", "schedule a call", "meet the team"));
         phrases.put(UpdateType.TECHNICAL_TEST, Set.of(
                 "teste tecnico", "desafio tecnico", "desafio de codigo", "code challenge",
-                "technical test", "take-home", "assessment", "hackerrank", "codility"));
+                "technical test", "take-home", "hackerrank", "codility",
+                "completar seus testes", "complete seus testes",
+                // Not "assessment" on its own: a job board sends an "Assessment Report" with
+                // a score nobody has to do anything about.
+                "technical assessment", "coding assessment", "skills assessment",
+                "complete the assessment"));
         // A question about salary, not the word: a confirmation can repeat the expectation
         // the candidate already gave, and that asks nothing.
         phrases.put(UpdateType.INFO_REQUEST, Set.of(
@@ -307,7 +335,8 @@ public final class EmailClassifier {
                 "precisamos de algumas informacoes", "preencha o formulario",
                 "salary expectation", "your availability", "fill out the form",
                 "we need some information", "complete sua inscricao",
-                "responda o questionario", "responder a um formulario"));
+                "responda o questionario", "responder a um formulario",
+                "conclua sua inscricao", "concluir inscricao", "terminar sua inscricao"));
         // Read last among the specific kinds: "sua candidatura para" also opens rejections,
         // invitations and tests, and every one of those is checked first.
         phrases.put(UpdateType.APPLICATION_RECEIVED, Set.of(
@@ -318,7 +347,10 @@ public final class EmailClassifier {
                 "inscricao via", "confirmacao de inscricao", "inscricao recebida",
                 "sua candidatura para", "mantenha-se informado sobre sua candidatura",
                 "thank you for your application", "we have received your application",
-                "saber do seu interesse"));
+                "saber do seu interesse", "confirmacao de candidatura",
+                "sua inscricao para a vaga", "inscricao foi confirmada",
+                "obrigada pelo interesse", "obrigado pelo interesse",
+                "thanks for applying", "thanks again for applying"));
         return phrases;
     }
 }
