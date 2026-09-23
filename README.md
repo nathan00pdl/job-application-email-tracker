@@ -152,33 +152,27 @@ belong.
 At the end of every run, whatever has not been reported yet goes out as one WhatsApp
 message to your own number — every day, even when there is nothing new, so that a morning
 without one means something failed. It is sent from Meta's free test number, through the
-WhatsApp Cloud API, as the approved template `resumo_diario_acoes`:
+WhatsApp Cloud API, as the approved template `resumo_diario_lista`:
 
 ```
-Resumo diário das suas candidaturas, referente a {{1}}.
+Resumo de {{1}}: {{2}}.
 
-Este resumo reúne os e-mails sobre processos seletivos que chegaram desde o envio anterior, já classificados de forma automática.
+Pedem sua atenção:
+1) {{3}}
+2) {{4}}
+3) {{5}}
+4) {{6}}
+5) {{7}}
+6) {{8}}
 
-Chegaram {{2}} e-mails sobre candidaturas. Divisão por tipo de retorno: {{3}}.
+Além desses: {{9}}. Os demais estão na planilha: {{10}}
 
-Pedem sua atenção, do mais importante para o menos importante. Cada item mostra o tipo de retorno, a plataforma ou o domínio de quem enviou, a data de chegada e o link que abre o e-mail direto no Gmail:
-1) {{4}}
-2) {{5}}
-3) {{6}}
-4) {{7}}
-5) {{8}}
-6) {{9}}
-7) {{10}}
-8) {{11}}
-9) {{12}}
-10) {{13}}
-
-Além desses, também pedem atenção: {{14}}.
-
-Propostas, testes técnicos, entrevistas, pedidos de informação e e-mails com prazo entram na lista. Confirmações de inscrição, recusas e e-mails sem categoria não entram, mas aparecem na contagem acima e ficam registrados na planilha de acompanhamento: {{15}}
-
-Vagas sem item aparecem com um traço. Mensagem automática, enviada uma vez por dia.
+Mensagem automática diária.
 ```
+
+The text is short on purpose. An earlier template explained the format in three
+paragraphs, and those 874 characters left no room for a single email once the link to the
+spreadsheet was in: Meta refused the whole message.
 
 The point of the message is what needs doing, not how much arrived. An offer, an interview,
 a technical test, a request for information, or anything with a deadline is listed, most
@@ -189,15 +183,15 @@ Entrevista · URGENTE · Gupy · 17/09 · https://mail.google.com/mail/u/0/#all/
 ```
 
 Confirmations and rejections are only counted: on a day of many applications they are most
-of the mail, and would bury the one email that matters. The template has ten places;
+of the mail, and would bury the one email that matters. The template has six places;
 beyond them the message says how many more, and the spreadsheet has them all. A quiet day
 keeps the same shape, with a dash in each place.
 
 Meta accepts at most **1,024 characters once the blanks are filled** and refuses a longer
 message whole, so the list holds only what fits: the least important emails give way first
 and are counted as "mais N", and if the message still does not fit, the counts by kind give
-way to "veja a planilha". A shorter list still arrives; a message that is too long never
-would.
+way, leaving how many arrived. A shorter list still arrives; a message that is too long
+never would.
 
 The message holds counts, dates, platform or sender domains and links to the emails —
 never a subject, a sender's address or any text from a message. The classifications it
@@ -211,7 +205,7 @@ Setting it up, once, on Meta's side:
    through WhatsApp* use case.
 2. In *Step 1 · Try it*, claim the free test number and add your own number as a
    recipient.
-3. In WhatsApp Manager, on the test account, create `resumo_diario_acoes`: category
+3. In WhatsApp Manager, on the test account, create `resumo_diario_lista`: category
    Utility, language Portuguese (BR), variables of type *Number*, the text above, and a
    fixed header with no variable — the editor refuses an empty one.
 4. In Business settings, add a system user with the Employee role, assign it the app and

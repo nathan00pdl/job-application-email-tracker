@@ -20,11 +20,15 @@ import com.nathanpaiva.jobtracker.domain.UpdateType;
  *
  * <p>A WhatsApp message that the business sends first has to be a template Meta approved
  * in advance. Its text is fixed; only the blanks change from one day to the next. The
- * approved text is {@link #TEXT}, and this class fills its fifteen blanks.
+ * approved text is {@link #TEXT}, and this class fills its ten blanks.
  *
  * <p>One template for every day, so its shape never changes: a quiet day has a dash in each
- * of the ten places, and a busy one says how many more there are. The fixed text cannot
+ * of the six places, and a busy one says how many more there are. The fixed text cannot
  * lose a line, which is why the places are always there.
+ *
+ * <p>The text is deliberately short. An earlier one explained the format in three
+ * paragraphs, and those 874 characters left no room for a single email once the link to
+ * the spreadsheet was in: Meta refused the message whole.
  *
  * <p><b>The filled message must fit in {@value #MAX_LENGTH} characters.</b> Meta counts the
  * fixed text and the values together, and refuses a longer message outright — code 132005,
@@ -50,7 +54,7 @@ final class DigestMessage {
      * The template's name and language, as registered with Meta. Both are part of what was
      * approved: another name or another language is another template.
      */
-    static final String TEMPLATE = "resumo_diario_acoes";
+    static final String TEMPLATE = "resumo_diario_lista";
     static final String LANGUAGE = "pt_BR";
 
     /**
@@ -58,32 +62,22 @@ final class DigestMessage {
      * side, because it is what the length of the filled message is measured against.
      */
     static final String TEXT = """
-            Resumo diário das suas candidaturas, referente a {{1}}.
+            Resumo de {{1}}: {{2}}.
 
-            Este resumo reúne os e-mails sobre processos seletivos que chegaram desde o envio anterior, já classificados de forma automática.
+            Pedem sua atenção:
+            1) {{3}}
+            2) {{4}}
+            3) {{5}}
+            4) {{6}}
+            5) {{7}}
+            6) {{8}}
 
-            Chegaram {{2}} e-mails sobre candidaturas. Divisão por tipo de retorno: {{3}}.
+            Além desses: {{9}}. Os demais estão na planilha: {{10}}
 
-            Pedem sua atenção, do mais importante para o menos importante. Cada item mostra o tipo de retorno, a plataforma ou o domínio de quem enviou, a data de chegada e o link que abre o e-mail direto no Gmail:
-            1) {{4}}
-            2) {{5}}
-            3) {{6}}
-            4) {{7}}
-            5) {{8}}
-            6) {{9}}
-            7) {{10}}
-            8) {{11}}
-            9) {{12}}
-            10) {{13}}
+            Mensagem automática diária.""";
 
-            Além desses, também pedem atenção: {{14}}.
-
-            Propostas, testes técnicos, entrevistas, pedidos de informação e e-mails com prazo entram na lista. Confirmações de inscrição, recusas e e-mails sem categoria não entram, mas aparecem na contagem acima e ficam registrados na planilha de acompanhamento: {{15}}
-
-            Vagas sem item aparecem com um traço. Mensagem automática, enviada uma vez por dia.""";
-
-    /** How many emails the template can name; the rest are counted in blank fourteen. */
-    static final int PLACES = 10;
+    /** How many emails the template can name; the rest are counted in blank nine. */
+    static final int PLACES = 6;
 
     /** The most characters Meta accepts in the body, fixed text and values together. */
     static final int MAX_LENGTH = 1024;
@@ -125,9 +119,6 @@ final class DigestMessage {
     /** What goes in a place with no email in it. */
     private static final String EMPTY_PLACE = "—";
 
-    /** The counts by kind, when there is no room left for them. */
-    private static final String SEE_THE_SPREADSHEET = "veja a planilha";
-
     /**
      * How each kind of update is named, and the order the counts are listed in.
      *
@@ -168,7 +159,7 @@ final class DigestMessage {
      * <p>What gives way, in the order that loses least: first the listed emails, the least
      * important one at a time, each counted in "além desses" so nothing that waits on the
      * reader goes unmentioned; then, if the message still does not fit with none listed,
-     * the counts by kind, which the spreadsheet holds anyway. The period, the total and the
+     * the counts by kind, leaving just how many arrived. The period, the total and the
      * link to the spreadsheet always stay.
      */
     static Template forDigest(DailyDigest digest, Instant now, String spreadsheetId, int maxLength) {
@@ -177,24 +168,23 @@ final class DigestMessage {
         Objects.requireNonNull(spreadsheetId, "spreadsheetId must not be null");
 
         int listed = Math.min(digest.actions().size(), PLACES);
-        List<String> values = values(digest, now, spreadsheetId, listed, byKind(digest));
+        List<String> values = values(digest, now, spreadsheetId, listed, summary(digest));
         while (listed > 0 && lengthOf(values) > maxLength) {
             listed--;
-            values = values(digest, now, spreadsheetId, listed, byKind(digest));
+            values = values(digest, now, spreadsheetId, listed, summary(digest));
         }
         if (lengthOf(values) > maxLength) {
-            values = values(digest, now, spreadsheetId, 0, SEE_THE_SPREADSHEET);
+            values = values(digest, now, spreadsheetId, 0, howMany(digest));
         }
         return new Template(TEMPLATE, values);
     }
 
-    /** The fifteen values, with the first {@code listed} actions in their places. */
+    /** The ten values, with the first {@code listed} actions in their places. */
     private static List<String> values(DailyDigest digest, Instant now, String spreadsheetId,
-                                       int listed, String counts) {
+                                       int listed, String summary) {
         List<String> values = new ArrayList<>();
         values.add(period(digest, now));
-        values.add(String.valueOf(digest.total()));
-        values.add(counts);
+        values.add(summary);
 
         List<ActionNeeded> actions = digest.actions();
         for (int place = 0; place < PLACES; place++) {
@@ -238,6 +228,17 @@ final class DigestMessage {
     }
 
     /** "2 entrevistas, 10 confirmações de inscrição", naming only the kinds that occurred. */
+    /** "14 e-mails: 2 entrevistas, 10 confirmações de inscrição". */
+    private static String summary(DailyDigest digest) {
+        String counted = byKind(digest);
+        return counted.equals(NOTHING) ? howMany(digest) : howMany(digest) + ": " + counted;
+    }
+
+    /** Just how many arrived — what is left when the kinds do not fit beside them. */
+    private static String howMany(DailyDigest digest) {
+        return digest.total() == 1 ? "1 e-mail" : digest.total() + " e-mails";
+    }
+
     private static String byKind(DailyDigest digest) {
         String counted = KINDS.stream()
                 .filter(kind -> digest.countOf(kind.type()) > 0)
