@@ -26,7 +26,7 @@ import tools.jackson.databind.json.JsonMapper;
  * Sends the daily digest as a WhatsApp template, through Meta's Cloud API.
  *
  * <p>One request per digest: a POST to {@code /{phone-number-id}/messages} naming the
- * approved template and carrying the fifteen values {@link DigestMessage} fills — the
+ * approved template and carrying the ten values {@link DigestMessage} fills — the
  * counts, the emails that wait on the reader with a link to each, and a link to the
  * spreadsheet. Meta answers with a 2xx when it accepts the message, and that is all this
  * class waits for. Whether the message reached the phone is reported later, through a

@@ -40,7 +40,7 @@ class DigestMessageTest {
     private static final Instant SIXTEENTH = Instant.parse("2026-09-16T12:00:00Z");
 
     @Test
-    void fillsTheFifteenBlanksInOrder() {
+    void fillsTheTenBlanksInOrder() {
         DailyDigest digest = DailyDigest.of(List.of(
                 classification("c1", SEVENTEENTH, UpdateType.APPLICATION_RECEIVED, "indeed.com", "Indeed", false),
                 classification("c2", SEVENTEENTH, UpdateType.APPLICATION_RECEIVED, "indeed.com", "Indeed", false),
@@ -50,14 +50,13 @@ class DigestMessageTest {
 
         DigestMessage.Template template = DigestMessage.forDigest(digest, SENT_AT, SHEET, NO_LIMIT);
 
-        assertThat(template.name()).isEqualTo("resumo_diario_acoes");
+        assertThat(template.name()).isEqualTo("resumo_diario_lista");
         assertThat(template.values()).containsExactly(
                 "16/09 a 17/09",
-                "5",
-                "1 entrevista, 1 teste técnico, 1 recusa, 2 confirmações de inscrição",
+                "5 e-mails: 1 entrevista, 1 teste técnico, 1 recusa, 2 confirmações de inscrição",
                 "Entrevista · Gupy · 17/09 · " + GMAIL + "i1",
                 "Teste técnico · URGENTE · empresa.com.br · 16/09 · " + GMAIL + "t1",
-                "—", "—", "—", "—", "—", "—", "—", "—",
+                "—", "—", "—", "—",
                 "nenhum",
                 SHEET_LINK);
     }
@@ -70,10 +69,10 @@ class DigestMessageTest {
     void reportsADayWithNothingInIt() {
         List<String> values = DigestMessage.forDigest(DailyDigest.empty(), SENT_AT, SHEET).values();
 
-        assertThat(values).hasSize(15);
-        assertThat(values.subList(0, 3)).containsExactly("17/09", "0", "nenhum");
-        assertThat(values.subList(3, 13)).containsOnly("—");
-        assertThat(values.subList(13, 15)).containsExactly("nenhum", SHEET_LINK);
+        assertThat(values).hasSize(10);
+        assertThat(values.subList(0, 2)).containsExactly("17/09", "0 e-mails");
+        assertThat(values.subList(2, 8)).containsOnly("—");
+        assertThat(values.subList(8, 10)).containsExactly("nenhum", SHEET_LINK);
     }
 
     /**
@@ -89,14 +88,14 @@ class DigestMessageTest {
 
         List<String> values = DigestMessage.forDigest(digest, SENT_AT, SHEET, NO_LIMIT).values();
 
-        assertThat(values.get(2)).isEqualTo("12 confirmações de inscrição");
-        assertThat(values.subList(3, 13)).containsOnly("—");
-        assertThat(values.get(13)).isEqualTo("nenhum");
+        assertThat(values.get(1)).isEqualTo("12 e-mails: 12 confirmações de inscrição");
+        assertThat(values.subList(2, 8)).containsOnly("—");
+        assertThat(values.get(8)).isEqualTo("nenhum");
     }
 
-    /** Ten places, and a count of the rest, so nothing that waits on the reader is silent. */
+    /** Six places, and a count of the rest, so nothing that waits on the reader is silent. */
     @Test
-    void countsWhatDoesNotFitInTheTenPlaces() {
+    void countsWhatDoesNotFitInTheSixPlaces() {
         DailyDigest digest = DailyDigest.of(IntStream.range(0, 12)
                 .mapToObj(n -> classification("i" + n, SEVENTEENTH, UpdateType.INTERVIEW_INVITE,
                         "gupy.com.br", "Gupy", false))
@@ -104,8 +103,8 @@ class DigestMessageTest {
 
         List<String> values = DigestMessage.forDigest(digest, SENT_AT, SHEET, NO_LIMIT).values();
 
-        assertThat(values.subList(3, 13)).allMatch(value -> value.startsWith("Entrevista · Gupy"));
-        assertThat(values.get(13)).isEqualTo("mais 2");
+        assertThat(values.subList(2, 8)).allMatch(value -> value.startsWith("Entrevista · Gupy"));
+        assertThat(values.get(8)).isEqualTo("mais 6");
     }
 
     /** The list follows the digest's own order, so the most important is always first. */
@@ -117,8 +116,8 @@ class DigestMessageTest {
 
         List<String> values = DigestMessage.forDigest(digest, SENT_AT, SHEET, NO_LIMIT).values();
 
-        assertThat(values.get(3)).startsWith("Proposta · Gupy").endsWith("offer");
-        assertThat(values.get(4)).startsWith("Pedido de informação · Bizneo").endsWith("request");
+        assertThat(values.get(2)).startsWith("Proposta · Gupy").endsWith("offer");
+        assertThat(values.get(3)).startsWith("Pedido de informação · Bizneo").endsWith("request");
     }
 
     /**
@@ -134,31 +133,18 @@ class DigestMessageTest {
         List<String> values = DigestMessage.forDigest(digest, SENT_AT, SHEET, NO_LIMIT).values();
 
         assertThat(values.get(0)).isEqualTo("16/09");
-        assertThat(values.get(3)).contains(" · 16/09 · ");
+        assertThat(values.get(2)).contains(" · 16/09 · ");
         assertThat(DigestMessage.forDigest(DailyDigest.empty(),
                 Instant.parse("2026-09-17T01:00:00Z"), SHEET).values().get(0)).isEqualTo("16/09");
     }
 
     /**
-     * The measure matches what Meta accepted and refused. A quiet day came to 990
-     * characters and went out; a day with one email listed came to 1,142 and was refused
-     * with 132005.
+     * The day that was refused under the old, long text — two emails, one of them listed —
+     * now fits with room to spare, links and all. The old text left no room for a single
+     * email; this one is 132 characters of fixed text instead of 874.
      */
     @Test
-    void measuresTheMessageAsMetaDoes() {
-        String sheetId = "x".repeat(44);
-        List<String> quietDay = DigestMessage.forDigest(DailyDigest.empty(), SENT_AT, sheetId).values();
-
-        assertThat(DigestMessage.lengthOf(quietDay)).isEqualTo(990);
-    }
-
-    /**
-     * The day that was refused, sent again. With today's long fixed text, even the counts by
-     * kind do not fit beside the link to the spreadsheet: the email leaves its place and is
-     * counted, the counts point to the spreadsheet, and the message goes out.
-     */
-    @Test
-    void givesWayUntilTheRefusedDayFits() {
+    void fitsTheDayThatWasRefusedBefore() {
         DailyDigest digest = DailyDigest.of(List.of(
                 classification("r1", SEVENTEENTH, UpdateType.INFO_REQUEST, "info.geekhunter.com.br",
                         "GeekHunter", true),
@@ -168,10 +154,30 @@ class DigestMessageTest {
         List<String> values = DigestMessage.forDigest(digest, SENT_AT, "x".repeat(44)).values();
 
         assertThat(DigestMessage.lengthOf(values)).isLessThanOrEqualTo(DigestMessage.MAX_LENGTH);
-        assertThat(values.get(1)).isEqualTo("2");
-        assertThat(values.get(2)).isEqualTo("veja a planilha");
-        assertThat(values.subList(3, 13)).containsOnly("—");
-        assertThat(values.get(13)).isEqualTo("mais 1");
+        assertThat(values.get(1)).isEqualTo("2 e-mails: 1 pedido de informação, 1 confirmação de inscrição");
+        assertThat(values.get(2)).startsWith("Pedido de informação · URGENTE · GeekHunter");
+        assertThat(values.get(8)).isEqualTo("nenhum");
+    }
+
+    /**
+     * Six long items, the longest counts and a period of three days: the busiest message the
+     * template can hold still fits.
+     */
+    @Test
+    void fitsADayFullOfEmailsThatAskSomething() {
+        List<EmailClassification> classifications = new ArrayList<>();
+        for (UpdateType type : UpdateType.values()) {
+            for (int n = 0; n < 3; n++) {
+                classifications.add(classification(type + "-" + n,
+                        n == 0 ? SIXTEENTH : SEVENTEENTH, type, "gupy.com.br", "Gupy", true));
+            }
+        }
+
+        List<String> values = DigestMessage.forDigest(
+                DailyDigest.of(classifications), SENT_AT, "x".repeat(44)).values();
+
+        assertThat(DigestMessage.lengthOf(values)).isLessThanOrEqualTo(DigestMessage.MAX_LENGTH);
+        assertThat(values.subList(2, 8)).noneMatch("—"::equals);
     }
 
     /** Counts give way only when the list is already empty, never before it. */
@@ -179,15 +185,28 @@ class DigestMessageTest {
     void keepsTheCountsWhenDroppingTheListIsEnough() {
         DailyDigest digest = DailyDigest.of(List.of(
                 classification("r1", SEVENTEENTH, UpdateType.INFO_REQUEST, "bizneo.com", "Bizneo", false)));
-        List<String> none = DigestMessage.forDigest(digest, SENT_AT, SHEET, NO_LIMIT).values();
-        int roomWithoutTheItem = DigestMessage.lengthOf(none) - none.get(3).length() + "—".length()
-                + "mais 1".length() - "nenhum".length();
+        List<String> listed = DigestMessage.forDigest(digest, SENT_AT, SHEET, NO_LIMIT).values();
+        int roomWithoutTheItem = DigestMessage.lengthOf(listed) - listed.get(2).length()
+                + "—".length() + "mais 1".length() - "nenhum".length();
 
         List<String> values = DigestMessage.forDigest(digest, SENT_AT, SHEET, roomWithoutTheItem).values();
 
-        assertThat(values.get(2)).isEqualTo("1 pedido de informação");
-        assertThat(values.get(3)).isEqualTo("—");
-        assertThat(values.get(13)).isEqualTo("mais 1");
+        assertThat(values.get(1)).isEqualTo("1 e-mail: 1 pedido de informação");
+        assertThat(values.get(2)).isEqualTo("—");
+        assertThat(values.get(8)).isEqualTo("mais 1");
+    }
+
+    /** With no room even for the kinds, how many arrived is what stays. */
+    @Test
+    void leavesOnlyTheCountWhenNothingElseFits() {
+        DailyDigest digest = DailyDigest.of(List.of(
+                classification("r1", SEVENTEENTH, UpdateType.INFO_REQUEST, "bizneo.com", "Bizneo", false)));
+
+        List<String> values = DigestMessage.forDigest(digest, SENT_AT, SHEET, 200).values();
+
+        assertThat(values.get(1)).isEqualTo("1 e-mail");
+        assertThat(values.get(2)).isEqualTo("—");
+        assertThat(values.get(8)).isEqualTo("mais 1");
     }
 
     /**
@@ -201,14 +220,14 @@ class DigestMessageTest {
                 classification("request", SEVENTEENTH, UpdateType.INFO_REQUEST, "bizneo.com", "Bizneo", false),
                 classification("test", SEVENTEENTH, UpdateType.TECHNICAL_TEST, "gupy.com.br", "Gupy", false)));
         List<String> all = DigestMessage.forDigest(digest, SENT_AT, SHEET, NO_LIMIT).values();
-        int roomForTwo = DigestMessage.lengthOf(all) - all.get(5).length() + "—".length() + 20;
+        int roomForTwo = DigestMessage.lengthOf(all) - all.get(4).length() + "—".length() + 20;
 
         List<String> values = DigestMessage.forDigest(digest, SENT_AT, SHEET, roomForTwo).values();
 
-        assertThat(values.get(3)).startsWith("Proposta");
-        assertThat(values.get(4)).startsWith("Teste técnico");
-        assertThat(values.get(5)).isEqualTo("—");
-        assertThat(values.get(13)).isEqualTo("mais 1");
+        assertThat(values.get(2)).startsWith("Proposta");
+        assertThat(values.get(3)).startsWith("Teste técnico");
+        assertThat(values.get(4)).isEqualTo("—");
+        assertThat(values.get(8)).isEqualTo("mais 1");
     }
 
     @Test
@@ -238,7 +257,7 @@ class DigestMessageTest {
         DailyDigest digest = DailyDigest.of(List.of(classification("i1", SEVENTEENTH,
                 UpdateType.INTERVIEW_INVITE, "gupy.com.br", "Gupy\nTalentos\t   SP", false)));
 
-        assertThat(DigestMessage.forDigest(digest, SENT_AT, SHEET, NO_LIMIT).values().get(3))
+        assertThat(DigestMessage.forDigest(digest, SENT_AT, SHEET, NO_LIMIT).values().get(2))
                 .startsWith("Entrevista · Gupy Talentos SP · ");
     }
 
@@ -251,8 +270,9 @@ class DigestMessageTest {
                         "gupy.com.br", "Gupy", false));
             }
         }
-        return DigestMessage.forDigest(DailyDigest.of(classifications), SENT_AT, SHEET, NO_LIMIT)
-                .values().get(2);
+        String summary = DigestMessage.forDigest(DailyDigest.of(classifications), SENT_AT, SHEET,
+                NO_LIMIT).values().get(1);
+        return summary.substring(summary.indexOf(": ") + 2);
     }
 
     private static EmailClassification classification(String id, Instant receivedAt, UpdateType type,

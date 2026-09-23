@@ -98,24 +98,25 @@ class MetaWhatsAppAdapterTest {
     }
 
     /**
-     * The approved template, by name and language, with the fifteen values in order —
+     * The approved template, by name and language, with the ten values in order —
      * including the link to the email that waits on the reader and to the spreadsheet.
      */
     @Test
-    void sendsTheTemplateWithTheFifteenValuesInOrder() {
+    void sendsTheTemplateWithTheTenValuesInOrder() {
         adapter().send(digest());
 
         JsonNode body = JSON.readTree(received.get().body());
         assertThat(body.path("messaging_product").asString()).isEqualTo("whatsapp");
         assertThat(body.path("type").asString()).isEqualTo("template");
-        assertThat(body.at("/template/name").asString()).isEqualTo("resumo_diario_acoes");
+        assertThat(body.at("/template/name").asString()).isEqualTo("resumo_diario_lista");
         assertThat(body.at("/template/language/code").asString()).isEqualTo("pt_BR");
         assertThat(body.at("/template/components/0/type").asString()).isEqualTo("body");
 
         List<String> values = parametersOf(body);
         assertThat(values).containsExactlyElementsOf(
                 DigestMessage.forDigest(digest(), SENT_AT, SPREADSHEET_ID).values());
-        assertThat(values.get(14)).contains(SPREADSHEET_ID);
+        assertThat(values.get(2)).endsWith("https://mail.google.com/mail/u/0/#all/interview-id");
+        assertThat(values.get(9)).contains(SPREADSHEET_ID);
     }
 
     /**
@@ -130,14 +131,14 @@ class MetaWhatsAppAdapterTest {
         assertThat(DigestMessage.lengthOf(values)).isLessThanOrEqualTo(DigestMessage.MAX_LENGTH);
     }
 
-    /** A day with no news goes out through the same template, all fifteen blanks filled. */
+    /** A day with no news goes out through the same template, all ten blanks filled. */
     @Test
     void sendsTheSameTemplateOnADayWithNoNews() {
         adapter().send(DailyDigest.empty());
 
         JsonNode body = JSON.readTree(received.get().body());
-        assertThat(body.at("/template/name").asString()).isEqualTo("resumo_diario_acoes");
-        assertThat(parametersOf(body)).hasSize(15).doesNotContain("");
+        assertThat(body.at("/template/name").asString()).isEqualTo("resumo_diario_lista");
+        assertThat(parametersOf(body)).hasSize(10).doesNotContain("");
     }
 
     private static List<String> parametersOf(JsonNode body) {
