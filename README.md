@@ -206,7 +206,8 @@ Setting it up, once, on Meta's side:
 2. In *Step 1 · Try it*, claim the free test number and add your own number as a
    recipient.
 3. In WhatsApp Manager, on the test account, create `resumo_diario_lista`: category
-   Utility, language Portuguese (BR), variables of type *Number*, the text above, and a
+   Utility, language English — the tag the code sends, whatever the text says — variables
+   of type *Number*, the text above, and a
    fixed header with no variable — the editor refuses an empty one.
 4. In Business settings, add a system user with the Employee role, assign it the app and
    the test WhatsApp account, and generate a token that never expires, with only the

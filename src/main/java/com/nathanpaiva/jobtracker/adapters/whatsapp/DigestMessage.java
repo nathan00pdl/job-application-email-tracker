@@ -51,11 +51,17 @@ import com.nathanpaiva.jobtracker.domain.UpdateType;
 final class DigestMessage {
 
     /**
-     * The template's name and language, as registered with Meta. Both are part of what was
-     * approved: another name or another language is another template.
+     * The template's name and language, as registered with Meta. Meta finds a template by
+     * the two together, so another name or another language is another template — and one
+     * that does not exist is refused with code 132001, "template name does not exist in the
+     * translation".
+     *
+     * <p>The language is {@code en} because that is how the template was registered, not
+     * because of what it says: the text below is Portuguese, and Meta never translates
+     * anything. The tag only picks which approved version to send.
      */
     static final String TEMPLATE = "resumo_diario_lista";
-    static final String LANGUAGE = "pt_BR";
+    static final String LANGUAGE = "en";
 
     /**
      * The template exactly as approved, blanks included. Kept here, and not only on Meta's

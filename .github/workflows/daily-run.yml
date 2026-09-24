@@ -191,7 +191,7 @@ jobs:
               ;;
             whatsapp-template)
               title="Daily run failed: the WhatsApp template is not active"
-              advice="Check in WhatsApp Manager that \`resumo_diario_lista\` is Active, in Portuguese (BR). The digest waits in the queue until it is."
+              advice="Check in WhatsApp Manager that \`resumo_diario_lista\` is Active and that its language is the one \`DigestMessage.LANGUAGE\` sends — Meta finds a template by name and language together, and refuses the pair it does not have. The digest waits in the queue until it does."
               ;;
             whatsapp-too-long)
               title="Daily run failed: the WhatsApp message is too long"
