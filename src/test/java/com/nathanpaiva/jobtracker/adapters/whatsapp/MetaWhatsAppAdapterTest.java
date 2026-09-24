@@ -109,7 +109,7 @@ class MetaWhatsAppAdapterTest {
         assertThat(body.path("messaging_product").asString()).isEqualTo("whatsapp");
         assertThat(body.path("type").asString()).isEqualTo("template");
         assertThat(body.at("/template/name").asString()).isEqualTo("resumo_diario_lista");
-        assertThat(body.at("/template/language/code").asString()).isEqualTo("pt_BR");
+        assertThat(body.at("/template/language/code").asString()).isEqualTo("en");
         assertThat(body.at("/template/components/0/type").asString()).isEqualTo("body");
 
         List<String> values = parametersOf(body);
