@@ -16,7 +16,7 @@ import com.nathanpaiva.jobtracker.domain.DailyDigest;
 import com.nathanpaiva.jobtracker.domain.UpdateType;
 
 /**
- * Fills the blanks of the {@code resumo_diario_acoes} template from a {@link DailyDigest}.
+ * Fills the blanks of the {@value #TEMPLATE} template from a {@link DailyDigest}.
  *
  * <p>A WhatsApp message that the business sends first has to be a template Meta approved
  * in advance. Its text is fixed; only the blanks change from one day to the next. The
