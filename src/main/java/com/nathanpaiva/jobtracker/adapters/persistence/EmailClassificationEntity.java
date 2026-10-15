@@ -52,12 +52,6 @@ class EmailClassificationEntity {
     @Column(name = "platform")
     private String platform;
 
-    @Column(name = "company")
-    private String company;
-
-    @Column(name = "role_title")
-    private String roleTitle;
-
     /**
      * Stored as text, not as a native database enum. {@code EnumType.STRING} writes the
      * constant name, so the column stays readable and a new category never needs a
@@ -86,7 +80,7 @@ class EmailClassificationEntity {
 
     EmailClassification toDomain() {
         return new EmailClassification(
-                gmailMessageId, receivedAt, senderDomain, platform, company, roleTitle,
+                gmailMessageId, receivedAt, senderDomain, platform,
                 updateType, subject, urgent);
     }
 
@@ -100,8 +94,6 @@ class EmailClassificationEntity {
         entity.receivedAt = classification.receivedAt();
         entity.senderDomain = classification.senderDomain();
         entity.platform = classification.platform();
-        entity.company = classification.company();
-        entity.roleTitle = classification.roleTitle();
         entity.updateType = classification.updateType();
         entity.subject = classification.subject();
         entity.urgent = classification.urgent();

@@ -29,7 +29,7 @@ class EmailClassificationsSchemaIntegrationTest extends AbstractPostgresIntegrat
                 "SELECT version FROM flyway_schema_history WHERE success = true ORDER BY installed_rank",
                 String.class);
 
-        assertThat(appliedVersions).containsExactly("1", "2", "3", "4", "5", "6");
+        assertThat(appliedVersions).containsExactly("1", "2", "3", "4", "5", "6", "7");
     }
 
     @Test
@@ -40,7 +40,7 @@ class EmailClassificationsSchemaIntegrationTest extends AbstractPostgresIntegrat
 
         assertThat(columns).containsExactlyInAnyOrder(
                 "id", "gmail_message_id", "received_at", "sender_domain", "platform",
-                "company", "role_title", "update_type", "subject", "is_urgent",
+                "update_type", "subject", "is_urgent",
                 "sheet_synced_at", "digest_sent_at", "created_at");
     }
 

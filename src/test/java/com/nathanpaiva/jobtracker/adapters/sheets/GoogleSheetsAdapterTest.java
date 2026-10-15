@@ -37,18 +37,13 @@ class GoogleSheetsAdapterTest {
     @Test
     void writesOneRowPerClassificationInAFixedOrder() {
         adapter("classifications").append(List.of(new EmailClassification(
-                "gmail-id-1", RECEIVED_AT, "greenhouse.io", "Greenhouse", "Acme Corp",
-                "Backend Engineer", UpdateType.INTERVIEW_INVITE, "Entrevista terça", true)));
+                "gmail-id-1", RECEIVED_AT, "greenhouse.io", "Greenhouse",
+                UpdateType.INTERVIEW_INVITE, "Entrevista terça", true)));
 
-        assertThat(lastBody.get())
-                .contains("03-09-2026 10:45")
-                .contains("greenhouse.io")
-                .contains("Greenhouse")
-                .contains("Acme Corp")
-                .contains("Backend Engineer")
-                .contains("INTERVIEW_INVITE")
-                .contains("yes")
-                .contains("Entrevista terça");
+        assertThat(lastBody.get()).contains("\"values\":[["
+                + "\"https://mail.google.com/mail/u/0/#all/gmail-id-1\","
+                + "\"03-09-2026 10:45\",\"greenhouse.io\",\"Greenhouse\","
+                + "\"INTERVIEW_INVITE\",\"yes\",\"Entrevista terça\"]]");
     }
 
     /**
@@ -67,7 +62,7 @@ class GoogleSheetsAdapterTest {
     @Test
     void writesEmptyCellsForWhatTheEmailDidNotSay() {
         adapter("classifications").append(List.of(new EmailClassification(
-                "gmail-id-2", RECEIVED_AT, "gupy.io", null, null, null,
+                "gmail-id-2", RECEIVED_AT, "gupy.io", null,
                 UpdateType.REJECTION, null, false)));
 
         assertThat(lastBody.get()).doesNotContain("null");
@@ -89,7 +84,7 @@ class GoogleSheetsAdapterTest {
     void appendsToTheConfiguredTab() {
         adapter("minha-aba").append(List.of(classification()));
 
-        assertThat(lastUrl.get()).contains("minha-aba");
+        assertThat(lastUrl.get()).contains("minha-aba").contains("A:G");
         assertThat(lastUrl.get()).contains("valueInputOption=RAW");
         assertThat(lastUrl.get()).contains("insertDataOption=INSERT_ROWS");
     }
@@ -130,6 +125,6 @@ class GoogleSheetsAdapterTest {
 
     private static EmailClassification classification() {
         return new EmailClassification("gmail-id", RECEIVED_AT, "greenhouse.io", null,
-                null, null, UpdateType.OTHER, null, false);
+                UpdateType.OTHER, null, false);
     }
 }

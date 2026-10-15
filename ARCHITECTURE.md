@@ -69,7 +69,7 @@ An email counts as being about an application when it either carries a phrase sh
 
 Phrases are read in order of finality — offer, rejection, interview, technical test, information request, acknowledgement — because a rejection almost always names the interview it is rejecting you after.
 
-The classifier never fills in the company or the role. Guessing those from phrases would produce values that look extracted but are not, and a wrong company is worse than an empty one. The platform comes from the sender's domain, which is a fact rather than a guess, and the subject column holds the subject line, copied as the sender wrote it.
+The classifier does not try to tell the company or the role. Guessing those from phrases would produce values that look extracted but are not, and a wrong company is worse than none — so there are no columns for them (migration `V7` dropped the two that nothing ever filled). The platform comes from the sender's domain, which is a fact rather than a guess, and the subject column holds the subject line, copied as the sender wrote it, which names both for a person to read.
 
 **Emails that are not about an application are never stored.** The existence of a record is the verdict, so no column says whether it counts. This also keeps unrelated personal mail — invoices, newsletters, private messages — out of the database entirely.
 
@@ -81,7 +81,7 @@ An earlier design ran a cheap rule filter first and sent only its matches to a l
 
 ## Database schema
 
-The shape below is what the tables hold after all six migrations. `V1` created `email_classifications`; `V2` dropped the four columns that supported the two-signal design described above; `V3` renamed `summary` to `subject`, because it holds the subject line and never held a summary; `V4` dropped `manual_status`, which nothing could fill; `V5` added `digest_sent_at`; and `V6` created `scan_runs`.
+The shape below is what the tables hold after all seven migrations. `V1` created `email_classifications`; `V2` dropped the four columns that supported the two-signal design described above; `V3` renamed `summary` to `subject`, because it holds the subject line and never held a summary; `V4` dropped `manual_status`, which nothing could fill; `V5` added `digest_sent_at`; `V6` created `scan_runs`; and `V7` dropped `company` and `role_title`, which nothing ever filled.
 
 ```sql
 CREATE TABLE email_classifications (
@@ -92,8 +92,6 @@ CREATE TABLE email_classifications (
     sender_domain        VARCHAR(255) NOT NULL,
     platform             VARCHAR(100),
 
-    company              VARCHAR(255),
-    role_title           VARCHAR(255),
     update_type          VARCHAR(50)  NOT NULL,
     subject              TEXT,
     is_urgent            BOOLEAN      NOT NULL DEFAULT FALSE,

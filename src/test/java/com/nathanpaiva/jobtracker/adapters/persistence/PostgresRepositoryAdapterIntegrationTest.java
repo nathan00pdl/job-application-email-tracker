@@ -55,7 +55,7 @@ class PostgresRepositoryAdapterIntegrationTest extends AbstractPostgresIntegrati
     void savesAClassificationWithEveryValueInTheRightColumn() {
         persistence.save(new EmailClassification(
                 "gmail-id-full-row", RECEIVED_AT, "greenhouse.io", "Greenhouse",
-                "Acme Corp", "Backend Engineer", UpdateType.INTERVIEW_INVITE,
+                UpdateType.INTERVIEW_INVITE,
                 "Convite para entrevista técnica", true));
 
         Map<String, Object> row = rowFor("gmail-id-full-row");
@@ -63,8 +63,6 @@ class PostgresRepositoryAdapterIntegrationTest extends AbstractPostgresIntegrati
         assertThat(row.get("received_at")).isNotNull();
         assertThat(row.get("sender_domain")).isEqualTo("greenhouse.io");
         assertThat(row.get("platform")).isEqualTo("Greenhouse");
-        assertThat(row.get("company")).isEqualTo("Acme Corp");
-        assertThat(row.get("role_title")).isEqualTo("Backend Engineer");
         assertThat(row.get("subject")).isEqualTo("Convite para entrevista técnica");
         assertThat(row.get("is_urgent")).isEqualTo(true);
     }
@@ -261,13 +259,13 @@ class PostgresRepositoryAdapterIntegrationTest extends AbstractPostgresIntegrati
 
     private static EmailClassification classificationAt(String gmailMessageId, Instant receivedAt) {
         return new EmailClassification(
-                gmailMessageId, receivedAt, "greenhouse.io", null, null, null,
+                gmailMessageId, receivedAt, "greenhouse.io", null,
                 UpdateType.OTHER, null, false);
     }
 
     private static EmailClassification classificationWith(String gmailMessageId) {
         return new EmailClassification(
-                gmailMessageId, RECEIVED_AT, "greenhouse.io", null, null, null,
+                gmailMessageId, RECEIVED_AT, "greenhouse.io", null,
                 UpdateType.OTHER, null, false);
     }
 

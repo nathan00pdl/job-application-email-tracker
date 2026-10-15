@@ -20,10 +20,10 @@ import java.util.Set;
  * "gostaríamos de convidá-lo". Matching phrases against templated text is very different
  * from matching them against free-form writing.
  *
- * <p>What it cannot do is read. It never fills in the company or the role, because
+ * <p>What it cannot do is read. It does not try to tell the company or the role, because
  * guessing those from phrases would produce values that look extracted but are not, and
- * a wrong company is worse than an empty one. The platform comes from the sender's
- * domain, which is a fact rather than a guess.
+ * a wrong company is worse than none. The platform comes from the sender's domain, which
+ * is a fact rather than a guess, and the subject is kept as written.
  *
  * <p>It depends on nothing: no framework, no network, no clock. Which is why every case
  * below can be checked in a plain unit test.
@@ -192,8 +192,6 @@ public final class EmailClassifier {
                 email.receivedAt(),
                 email.senderDomain(),
                 platform,
-                null,
-                null,
                 updateTypeOf(text),
                 subjectOf(email),
                 isUrgent(text)));
