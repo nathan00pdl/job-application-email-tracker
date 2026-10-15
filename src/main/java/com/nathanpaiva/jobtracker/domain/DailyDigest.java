@@ -47,7 +47,7 @@ import java.util.TreeSet;
  *                     classification whose platform could not be told is left out
  * @param earliest     when the oldest of them arrived; null when the digest is empty
  * @param latest       when the newest of them arrived; null when the digest is empty
- * @param actions      the ones worth opening, most important first; every one
+ * @param toOpen       the ones worth opening, most important first; every one
  *                     of them is also counted in the totals above
  */
 public record DailyDigest(
@@ -57,7 +57,7 @@ public record DailyDigest(
         List<String> platforms,
         Instant earliest,
         Instant latest,
-        List<ActionNeeded> actions
+        List<EmailToOpen> toOpen
 ) {
 
     /**
@@ -69,14 +69,14 @@ public record DailyDigest(
      * <p>Within the same kind, the urgent ones come first, and then the oldest — it has
      * been waiting longest.
      */
-    private static final List<UpdateType> ACTION_PRIORITY = List.of(
+    private static final List<UpdateType> PRIORITY = List.of(
             UpdateType.OFFER, UpdateType.INTERVIEW_INVITE,
             UpdateType.TECHNICAL_TEST, UpdateType.INFO_REQUEST);
 
-    private static final Comparator<ActionNeeded> MOST_IMPORTANT_FIRST =
-            Comparator.comparingInt((ActionNeeded action) -> priorityOf(action.updateType()))
-                    .thenComparing(ActionNeeded::urgent, Comparator.reverseOrder())
-                    .thenComparing(ActionNeeded::receivedAt);
+    private static final Comparator<EmailToOpen> MOST_IMPORTANT_FIRST =
+            Comparator.comparingInt((EmailToOpen email) -> priorityOf(email.updateType()))
+                    .thenComparing(EmailToOpen::urgent, Comparator.reverseOrder())
+                    .thenComparing(EmailToOpen::receivedAt);
 
     /**
      * Checks that the parts agree with each other, and copies the collections so that
@@ -118,10 +118,10 @@ public record DailyDigest(
 
         platforms = List.copyOf(platforms);
 
-        Objects.requireNonNull(actions, "actions must not be null");
-        actions = List.copyOf(actions);
-        if (actions.size() > total) {
-            throw new IllegalArgumentException("actions must not be more than total");
+        Objects.requireNonNull(toOpen, "toOpen must not be null");
+        toOpen = List.copyOf(toOpen);
+        if (toOpen.size() > total) {
+            throw new IllegalArgumentException("toOpen must not be more than total");
         }
 
         if (total == 0) {
@@ -156,7 +156,7 @@ public record DailyDigest(
 
         Map<UpdateType, Integer> counts = new EnumMap<>(UpdateType.class);
         Collection<String> platforms = new TreeSet<>();
-        List<ActionNeeded> actions = new ArrayList<>();
+        List<EmailToOpen> toOpen = new ArrayList<>();
         int urgent = 0;
         Instant earliest = null;
         Instant latest = null;
@@ -172,7 +172,7 @@ public record DailyDigest(
             if (classification.platform() != null && !classification.platform().isBlank()) {
                 platforms.add(classification.platform());
             }
-            ActionNeeded.of(classification).ifPresent(actions::add);
+            EmailToOpen.of(classification).ifPresent(toOpen::add);
 
             Instant receivedAt = classification.receivedAt();
             if (earliest == null || receivedAt.isBefore(earliest)) {
@@ -183,9 +183,9 @@ public record DailyDigest(
             }
         }
 
-        actions.sort(MOST_IMPORTANT_FIRST);
+        toOpen.sort(MOST_IMPORTANT_FIRST);
         return new DailyDigest(classifications.size(), counts, urgent, List.copyOf(platforms),
-                earliest, latest, actions);
+                earliest, latest, toOpen);
     }
 
     /** A digest of nothing. A run with no news still produces one. */
@@ -194,8 +194,8 @@ public record DailyDigest(
     }
 
     private static int priorityOf(UpdateType type) {
-        int index = ACTION_PRIORITY.indexOf(type);
-        return index < 0 ? ACTION_PRIORITY.size() : index;
+        int index = PRIORITY.indexOf(type);
+        return index < 0 ? PRIORITY.size() : index;
     }
 
     /** Whether there is any news to report. */

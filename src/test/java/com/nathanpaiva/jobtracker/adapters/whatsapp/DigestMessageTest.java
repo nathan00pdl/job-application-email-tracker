@@ -204,7 +204,7 @@ class DigestMessageTest {
         assertThat(values.subList(2, 8)).noneMatch("—"::equals);
     }
 
-    /** Counts give way only when the list is already empty, never before it. */
+    /** Only the list gives way: the counts by kind always stay. */
     @Test
     void keepsTheCountsWhenDroppingTheListIsEnough() {
         DailyDigest digest = DailyDigest.of(List.of(
@@ -220,17 +220,29 @@ class DigestMessageTest {
         assertThat(values.get(8)).isEqualTo("mais 1");
     }
 
-    /** With no room even for the kinds, how many arrived is what stays. */
+    /**
+     * The list is the only thing that gives way, which is safe only while the rest always
+     * fits. The busiest message this text can carry with nothing listed — every kind
+     * counted in the hundreds, a period of several days, a full spreadsheet id — has to
+     * be within Meta's limit. A longer template that broke this would fail here, instead
+     * of at Meta on the busiest morning.
+     */
     @Test
-    void leavesOnlyTheCountWhenNothingElseFits() {
-        DailyDigest digest = DailyDigest.of(List.of(
-                classification("r1", SEVENTEENTH, UpdateType.INFO_REQUEST, "bizneo.com", "Bizneo", false)));
+    void fitsWithNothingListedHoweverManyEmailsArrive() {
+        List<EmailClassification> classifications = new ArrayList<>();
+        for (UpdateType type : UpdateType.values()) {
+            for (int n = 0; n < 150; n++) {
+                classifications.add(classification(type + "-" + n,
+                        n == 0 ? SIXTEENTH.minusSeconds(3 * 86_400) : SEVENTEENTH,
+                        type, "gupy.com.br", "Gupy", false));
+            }
+        }
 
-        List<String> values = DigestMessage.forDigest(digest, SENT_AT, SHEET, 200).values();
+        List<String> values = DigestMessage.forDigest(
+                DailyDigest.of(classifications), SENT_AT, "x".repeat(44), 0).values();
 
-        assertThat(values.get(1)).isEqualTo("1 e-mail");
-        assertThat(values.get(2)).isEqualTo("—");
-        assertThat(values.get(8)).isEqualTo("mais 1");
+        assertThat(values.subList(2, 8)).containsOnly("—");
+        assertThat(DigestMessage.lengthOf(values)).isLessThanOrEqualTo(DigestMessage.MAX_LENGTH);
     }
 
     /**

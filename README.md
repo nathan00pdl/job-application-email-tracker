@@ -194,9 +194,9 @@ keeps the same shape, with a dash in each place.
 
 Meta accepts at most **1,024 characters once the blanks are filled** and refuses a longer
 message whole, so the list holds only what fits: the least important emails give way first
-and are counted as "mais N", and if the message still does not fit, the counts by kind give
-way, leaving how many arrived. A shorter list still arrives; a message that is too long
-never would.
+and are counted as "mais N". Nothing else ever has to — with no email listed, even the
+busiest day comes to under 400 characters. A shorter list still arrives; a message that is
+too long never would.
 
 The message holds counts, dates, platform or sender domains and links to the emails —
 never a subject, a sender's address or any text from a message. The classifications it
