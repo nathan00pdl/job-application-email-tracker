@@ -115,7 +115,7 @@ public final class EmailClassifier {
             "agradecemos seu interesse em nossa oportunidade",
             "retorno do processo seletivo", "retorno do seu processo seletivo",
             "inscricao via", "confirmacao de candidatura", "sua inscricao para a vaga",
-            "voce se candidatou",
+            "voce se candidatou", "voce avancou no processo",
             "thanks for applying", "thanks again for applying",
             "we received your application", "we have received your application",
             "thank you for applying", "thank you for your application",

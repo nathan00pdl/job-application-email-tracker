@@ -261,6 +261,19 @@ class EmailClassifierTest {
     }
 
     /**
+     * A real email from a company that uses no hiring platform, with a subject that proves
+     * nothing — "Testes on-line" could come from a course. What proves it is the answer in
+     * the body: "você avançou" says the reader is already in the process, which an advert
+     * inviting people in never says.
+     */
+    @Test
+    void recognisesAnEmailSayingTheReaderAdvancedInTheProcess() {
+        assertThat(classify("agi.com.br", "Testes on-line | Formação de Devs nativos em IA",
+                "Parabéns! Você avançou no processo seletivo! Agora é hora de realizar os testes"
+                        + " online.")).isPresent();
+    }
+
+    /**
      * The new phrases must not undo the veto. An advert announcing that a selection
      * process is open is still an advert, whatever words surround it.
      */
