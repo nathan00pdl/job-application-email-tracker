@@ -13,7 +13,7 @@ import java.util.TreeSet;
 
 /**
  * What a set of classifications adds up to: how many, of which kinds, from which
- * platforms, over which stretch of time, and which of them wait on the reader.
+ * platforms, over which stretch of time, and which of them are worth opening.
  *
  * <p>Every other domain type here describes one email. This is the first one that looks
  * at many of them at once and answers a different question: not "what is this email"

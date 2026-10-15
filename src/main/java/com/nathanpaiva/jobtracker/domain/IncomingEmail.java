@@ -7,11 +7,11 @@ import java.util.Objects;
  * An email the daily scan fetched, before anything has been decided about it.
  *
  * <p>This is the raw material the pipeline works on: what comes out of the mailbox and
- * goes into the rule filter and then the classifier. It carries no verdict of any kind
+ * goes into the classifier. It carries no verdict of any kind
  * — that is what {@link EmailClassification} is for.
  *
- * <p>Like the rest of the domain, it knows nothing about Gmail. The Gmail adapter will
- * build these from its own API objects, so nothing further in the pipeline has to deal
+ * <p>Like the rest of the domain, it knows nothing about Gmail. The Gmail adapter
+ * builds these from its own API objects, so nothing further in the pipeline has to deal
  * with Google's types, and a different mailbox would only mean a different adapter.
  *
  * <p>{@code subject} and {@code body} are kept in their original language, mostly

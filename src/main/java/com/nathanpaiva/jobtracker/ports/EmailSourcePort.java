@@ -10,7 +10,7 @@ import com.nathanpaiva.jobtracker.domain.IncomingEmail;
  *
  * <p>The interface says nothing about Gmail. Reading the same mailbox over IMAP, or a
  * different mailbox entirely, would mean a different adapter and no change anywhere
- * else — the domain, the rule filter and the classifier never learn where an email
+ * else — the domain and the classifier never learn where an email
  * came from.
  */
 public interface EmailSourcePort {

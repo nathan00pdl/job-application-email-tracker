@@ -27,7 +27,7 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * <p>One request per digest: a POST to {@code /{phone-number-id}/messages} naming the
  * approved template and carrying the ten values {@link DigestMessage} fills — the
- * counts, the emails that wait on the reader with a link to each, and a link to the
+ * counts, the emails worth opening with a link to each, and a link to the
  * spreadsheet. Meta answers with a 2xx when it accepts the message, and that is all this
  * class waits for. Whether the message reached the phone is reported later, through a
  * webhook this project does not run.
