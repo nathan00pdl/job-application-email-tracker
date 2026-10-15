@@ -174,9 +174,9 @@ The text is short on purpose. An earlier template explained the format in three
 paragraphs, and those 874 characters left no room for a single email once the link to the
 spreadsheet was in: Meta refused the whole message.
 
-The point of the message is what needs doing, not how much arrived. An offer, an interview,
-a technical test, a request for information, or anything with a deadline is listed as one
-line: where it came from, the day it arrived, and a link that opens that email in Gmail.
+The point of the message is which emails to open, not how much arrived. An offer, an
+interview, a technical test, a request for information, an email about an application that
+the classifier could not name, or anything with a deadline is listed as one line: where it came from, the day it arrived, and a link that opens that email in Gmail.
 
 ```
 Gupy · 17/09 · https://mail.google.com/mail/u/0/#all/<id>
@@ -186,8 +186,9 @@ The list reads newest first, as in Gmail. When there are more emails than places
 importance decides which ones get a place — an offer before an interview, an interview
 before a request — and only then are they sorted by date.
 
-Confirmations and rejections are only counted: on a day of many applications they are most
-of the mail, and would bury the one email that matters. The template has six places;
+Confirmations and rejections are only counted: neither leaves anything to do, and on a day
+of many applications they are most of the mail, which would bury the one email that
+matters. The template has six places;
 beyond them the message says how many more, and the spreadsheet has them all. A quiet day
 keeps the same shape, with a dash in each place.
 

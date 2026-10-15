@@ -184,12 +184,13 @@ class DailyDigestTest {
     }
 
     /**
-     * The list holds what waits on the reader, and nothing else. On a morning of
-     * applications, the confirmations and the rejections are most of the mail — counted,
-     * but kept out of the list, or it would bury the one email that matters.
+     * The list holds what is worth opening: what waits on the reader, and what the
+     * classifier could not name. On a morning of applications, the confirmations and the
+     * rejections are most of the mail — counted, but kept out of the list, or it would
+     * bury the one email that matters.
      */
     @Test
-    void listsOnlyTheEmailsThatWaitOnTheReader() {
+    void listsOnlyTheEmailsWorthOpening() {
         DailyDigest digest = DailyDigest.of(List.of(
                 classification("confirmation", NOON, UpdateType.APPLICATION_RECEIVED, "Indeed", false),
                 classification("rejection", NOON, UpdateType.REJECTION, "Gupy", false),
@@ -198,11 +199,11 @@ class DailyDigestTest {
                 classification("form", NOON, UpdateType.INFO_REQUEST, "Bizneo", false)));
 
         assertThat(digest.actions()).extracting(ActionNeeded::gmailMessageId)
-                .containsExactlyInAnyOrder("interview", "form");
+                .containsExactlyInAnyOrder("interview", "form", "other");
         assertThat(digest.total()).isEqualTo(5);
     }
 
-    /** A deadline asks for action whatever kind of email carries it. */
+    /** A deadline is worth opening whatever kind of email carries it. */
     @Test
     void listsAnUrgentEmailOfAnyKind() {
         DailyDigest digest = DailyDigest.of(List.of(
@@ -214,7 +215,8 @@ class DailyDigestTest {
 
     /**
      * Most important first, whatever order the database returned: offer, interview, test,
-     * request, then what is only urgent. Within a kind, urgent before not, then oldest.
+     * request, then the rest — what is only urgent ahead of what the classifier could not
+     * name. Within a kind, urgent before not, then oldest.
      */
     @Test
     void ordersTheListFromTheMostImportant() {
@@ -225,11 +227,12 @@ class DailyDigestTest {
                 classification("test", MORNING, UpdateType.TECHNICAL_TEST, "Gupy", false),
                 classification("early-interview", MORNING, UpdateType.INTERVIEW_INVITE, "Gupy", false),
                 classification("urgent-interview", EVENING, UpdateType.INTERVIEW_INVITE, "Gupy", true),
-                classification("offer", EVENING, UpdateType.OFFER, "Gupy", false)));
+                classification("offer", EVENING, UpdateType.OFFER, "Gupy", false),
+                classification("unnamed", MORNING, UpdateType.OTHER, "Gupy", false)));
 
         assertThat(digest.actions()).extracting(ActionNeeded::gmailMessageId).containsExactly(
                 "offer", "urgent-interview", "early-interview", "late-interview", "test",
-                "request", "urgent-confirmation");
+                "request", "urgent-confirmation", "unnamed");
     }
 
     /**

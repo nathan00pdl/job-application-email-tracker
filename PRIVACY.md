@@ -45,10 +45,10 @@ subject, a sender, the text of a message, or any credential.
 
 Once a day, a summary is sent to the author's own phone number over WhatsApp, through
 Meta's WhatsApp Cloud API. It holds how many updates arrived and of which kind, and lists
-the ones that ask for action — an offer, an interview, a test, a request for information,
-or anything with a deadline. For each of those it names the kind, the hiring platform or
-else the domain the email came from, the day it arrived, and a link that opens it in
-Gmail, which only works for someone signed in to the author's account. It also links to
+the ones worth opening — an offer, an interview, a test, a request for information, one
+whose kind could not be told, or anything with a deadline. For each of those it names the
+hiring platform or else the domain the email came from, the day it arrived, and a link
+that opens it in Gmail, which only works for someone signed in to the author's account. It also links to
 the author's private spreadsheet. It never holds a subject, a sender's address, or any
 text from a message. Meta receives it only to deliver it.
 

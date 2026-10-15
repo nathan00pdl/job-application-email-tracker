@@ -97,7 +97,7 @@ class MetaWhatsAppAdapter implements NotificationPort {
 
         // What was sent, not what came back: reading the answer to log it would let an
         // absent field turn a message Meta accepted into a failed run.
-        log.info("sent the digest over WhatsApp: {} updates, {} urgent, {} ask for action",
+        log.info("sent the digest over WhatsApp: {} updates, {} urgent, {} listed",
                 digest.total(), digest.urgent(), digest.actions().size());
     }
 

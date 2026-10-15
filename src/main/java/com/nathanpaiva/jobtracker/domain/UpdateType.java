@@ -46,17 +46,19 @@ public enum UpdateType {
     OTHER;
 
     /**
-     * Whether an email of this kind waits on the reader: an offer to answer, an interview
-     * to schedule, a test to take, information to send.
+     * Whether an email of this kind is worth opening: it waits on the reader — an offer to
+     * answer, an interview to schedule, a test to take, information to send — or it is an
+     * {@link #OTHER}, which the classifier knew was about an application but could not
+     * name. What it says is left for the reader to find out.
      *
-     * <p>The rest do not. A confirmation or a rejection is worth knowing, but there is
-     * nothing to do about either — and on a day of many applications they are most of the
-     * mail, which is exactly why they must not crowd a list of things to do.
+     * <p>The rest are not. A confirmation says the application arrived, and a rejection
+     * that it ended; neither leaves anything to do. On a day of many applications they are
+     * most of the mail, which is exactly why they must not crowd the list.
      */
-    public boolean asksForAction() {
+    public boolean isWorthOpening() {
         return switch (this) {
-            case OFFER, INTERVIEW_INVITE, TECHNICAL_TEST, INFO_REQUEST -> true;
-            case APPLICATION_RECEIVED, REJECTION, OTHER -> false;
+            case OFFER, INTERVIEW_INVITE, TECHNICAL_TEST, INFO_REQUEST, OTHER -> true;
+            case APPLICATION_RECEIVED, REJECTION -> false;
         };
     }
 }
