@@ -272,9 +272,10 @@ The local `.env` keeps pointing at the local container, so a run started by hand
 writes to the real database.
 
 **When a run fails**, a second job opens an issue labelled `daily-run-failure` and mentions
-you in it, so GitHub notifies you. The title names the cause when the run can identify it — an
-expired Gmail token, or WhatsApp refusing the token, access to the test number, or a
-template that is not active yet — and the body links to the run and says what to do. While
+you in it, so GitHub notifies you. The title names the cause when the run can identify it — a
+setting with no value, an expired Gmail token, or WhatsApp refusing the token, access to
+the test number, a template that is not active yet, or a message that came out too long —
+and the body links to the run and says what to do. While
 that issue is open, later failures become comments on it rather than new issues. It
 carries no text from the log, because on a public repository issues are public too.
 

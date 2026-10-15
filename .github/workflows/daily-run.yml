@@ -120,6 +120,8 @@ jobs:
       # them: 190 is a token Meta no longer accepts, 100 a token that cannot reach the test
       # number, 132001 a template with no active version in the language asked for, and
       # 132005 a message that came out longer than Meta accepts once its blanks are filled.
+      # "is not set" is the application refusing to start because a setting has no value —
+      # in this workflow, a secret that does not exist.
       - name: Name the cause
         id: cause
         if: failure()
@@ -129,6 +131,8 @@ jobs:
           log="$RUNNER_TEMP/scan.log"
           if [ "$FAILED_ON_PURPOSE" = "true" ]; then
             cause=on-purpose
+          elif grep -qs "IllegalArgumentException: [A-Z_]* is not set" "$log"; then
+            cause=missing-setting
           elif grep -qs invalid_grant "$log"; then
             cause=gmail-token
           elif grep -qs "WhatsApp refused the digest: .*code 190:" "$log"; then
@@ -177,6 +181,10 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           case "$CAUSE" in
+            missing-setting)
+              title="Daily run failed: a setting has no value"
+              advice="The run stopped before reading anything. Its log names the variable that is missing: check that the repository secret of that name exists and is not empty, then start a run by hand with \`gh workflow run daily-run.yml\`."
+              ;;
             gmail-token)
               title="Daily run failed: the Gmail token expired"
               advice="Generate a new refresh token, update the \`GMAIL_REFRESH_TOKEN\` secret, and start a run by hand with \`gh workflow run daily-run.yml\`."
