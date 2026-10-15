@@ -27,7 +27,7 @@ class EmailClassificationTest {
     void exposesTheValuesItWasBuiltWith() {
         EmailClassification classification = new EmailClassification(
                 "18f2a9c3d4e5b6a7", RECEIVED_AT, "greenhouse.io", "Greenhouse",
-                "Acme Corp", "Backend Engineer", UpdateType.INTERVIEW_INVITE,
+                UpdateType.INTERVIEW_INVITE,
                 "Convite para entrevista técnica na próxima terça", true);
 
         assertThat(classification.gmailMessageId()).isEqualTo("18f2a9c3d4e5b6a7");
@@ -46,7 +46,7 @@ class EmailClassificationTest {
     void acceptsAClassificationWithNothingExtractedFromTheMessage() {
         assertThatCode(() -> new EmailClassification(
                 "18f2a9c3d4e5b6a7", RECEIVED_AT, "newsletter.example.com", null,
-                null, null, UpdateType.OTHER, null, false))
+                UpdateType.OTHER, null, false))
                 .doesNotThrowAnyException();
     }
 
@@ -55,7 +55,7 @@ class EmailClassificationTest {
     @ValueSource(strings = {"   "})
     void rejectsAMissingGmailMessageId(String invalid) {
         assertThatThrownBy(() -> new EmailClassification(
-                invalid, RECEIVED_AT, "greenhouse.io", null, null, null,
+                invalid, RECEIVED_AT, "greenhouse.io", null,
                 UpdateType.OTHER, null, false))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("gmailMessageId");
@@ -66,7 +66,7 @@ class EmailClassificationTest {
     @ValueSource(strings = {"   "})
     void rejectsAMissingSenderDomain(String invalid) {
         assertThatThrownBy(() -> new EmailClassification(
-                "18f2a9c3d4e5b6a7", RECEIVED_AT, invalid, null, null, null,
+                "18f2a9c3d4e5b6a7", RECEIVED_AT, invalid, null,
                 UpdateType.OTHER, null, false))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("senderDomain");
@@ -75,7 +75,7 @@ class EmailClassificationTest {
     @Test
     void rejectsAMissingReceivedAt() {
         assertThatThrownBy(() -> new EmailClassification(
-                "18f2a9c3d4e5b6a7", null, "greenhouse.io", null, null, null,
+                "18f2a9c3d4e5b6a7", null, "greenhouse.io", null,
                 UpdateType.OTHER, null, false))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("receivedAt");
@@ -84,7 +84,7 @@ class EmailClassificationTest {
     @Test
     void rejectsAMissingUpdateType() {
         assertThatThrownBy(() -> new EmailClassification(
-                "18f2a9c3d4e5b6a7", RECEIVED_AT, "greenhouse.io", null, null, null,
+                "18f2a9c3d4e5b6a7", RECEIVED_AT, "greenhouse.io", null,
                 null, null, false))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("updateType");
@@ -97,10 +97,10 @@ class EmailClassificationTest {
     @Test
     void comparesByValueRatherThanByIdentity() {
         EmailClassification one = new EmailClassification(
-                "18f2a9c3d4e5b6a7", RECEIVED_AT, "greenhouse.io", null, null, null,
+                "18f2a9c3d4e5b6a7", RECEIVED_AT, "greenhouse.io", null,
                 UpdateType.REJECTION, null, false);
         EmailClassification other = new EmailClassification(
-                "18f2a9c3d4e5b6a7", RECEIVED_AT, "greenhouse.io", null, null, null,
+                "18f2a9c3d4e5b6a7", RECEIVED_AT, "greenhouse.io", null,
                 UpdateType.REJECTION, null, false);
 
         assertThat(one).isEqualTo(other);

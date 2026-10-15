@@ -301,6 +301,6 @@ class DigestMessageTest {
 
     private static EmailClassification classification(String id, Instant receivedAt, UpdateType type,
                                                       String senderDomain, String platform, boolean urgent) {
-        return new EmailClassification(id, receivedAt, senderDomain, platform, null, null, type, null, urgent);
+        return new EmailClassification(id, receivedAt, senderDomain, platform, type, null, urgent);
     }
 }

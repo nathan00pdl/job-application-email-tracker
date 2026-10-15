@@ -18,7 +18,7 @@ import com.nathanpaiva.jobtracker.ports.SpreadsheetPort;
 /**
  * Appends classifications to a Google Sheet.
  *
- * <p>Nine columns, A to I, in a fixed order. Column J onwards is left alone: that is
+ * <p>Seven columns, A to G, in a fixed order. Column H onwards is left alone: that is
  * where notes written by hand live, and appending never reaches them.
  */
 @Component
@@ -61,7 +61,7 @@ class GoogleSheetsAdapter implements SpreadsheetPort {
     GoogleSheetsAdapter(Sheets sheets, GoogleSheetsProperties properties) {
         this.sheets = sheets;
         this.spreadsheetId = properties.spreadsheetId();
-        this.range = properties.sheetName() + "!A:I";
+        this.range = properties.sheetName() + "!A:G";
     }
 
     @Override
@@ -77,8 +77,8 @@ class GoogleSheetsAdapter implements SpreadsheetPort {
             sheets.spreadsheets().values()
                     .append(spreadsheetId, range, rows)
                     // RAW stores what we send. USER_ENTERED would let the sheet reinterpret
-                    // it — turning a subject that opens with "=" into a formula, and a
-                    // company written as "1-2" into a date.
+                    // it — turning a subject that opens with "=" into a formula, and one
+                    // that is only "1-2" into a date.
                     .setValueInputOption("RAW")
                     .setInsertDataOption("INSERT_ROWS")
                     .execute();
@@ -106,8 +106,6 @@ class GoogleSheetsAdapter implements SpreadsheetPort {
                 RECEIVED_ON.format(classification.receivedAt()),
                 classification.senderDomain(),
                 orEmpty(classification.platform()),
-                orEmpty(classification.company()),
-                orEmpty(classification.roleTitle()),
                 classification.updateType().name(),
                 classification.urgent() ? "yes" : "no",
                 orEmpty(classification.subject()));

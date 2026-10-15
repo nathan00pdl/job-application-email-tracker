@@ -166,20 +166,6 @@ class EmailClassifierTest {
         });
     }
 
-    /**
-     * Guessing these from phrases would produce values that look extracted but are not,
-     * and a wrong company is worse than an empty one.
-     */
-    @Test
-    void neverGuessesTheCompanyOrTheRole() {
-        assertThat(classify("greenhouse.io", "Sua candidatura para Backend na Acme Corp"))
-                .get()
-                .satisfies(classification -> {
-                    assertThat(classification.company()).isNull();
-                    assertThat(classification.roleTitle()).isNull();
-                });
-    }
-
     @Test
     void leavesTheSubjectEmptyWhenTheEmailHasNone() {
         assertThat(classify("greenhouse.io", "")).get()

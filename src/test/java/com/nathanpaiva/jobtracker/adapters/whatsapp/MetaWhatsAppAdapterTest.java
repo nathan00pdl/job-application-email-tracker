@@ -227,6 +227,6 @@ class MetaWhatsAppAdapterTest {
 
     private static EmailClassification classification(String id, UpdateType type, boolean urgent) {
         return new EmailClassification(id, Instant.parse("2026-09-14T12:00:00Z"), "gupy.com.br",
-                "Gupy", null, null, type, null, urgent);
+                "Gupy", type, null, urgent);
     }
 }

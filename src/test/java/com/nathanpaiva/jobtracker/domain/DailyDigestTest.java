@@ -243,7 +243,7 @@ class DailyDigestTest {
     void namesThePlatformOrElseTheSendersDomain() {
         DailyDigest digest = DailyDigest.of(List.of(
                 classification("platform", MORNING, UpdateType.OFFER, "Gupy", false),
-                new EmailClassification("domain", NOON, "empresa.com.br", null, null, null,
+                new EmailClassification("domain", NOON, "empresa.com.br", null,
                         UpdateType.TECHNICAL_TEST, null, false)));
 
         assertThat(digest.actions()).extracting(ActionNeeded::source)
@@ -263,6 +263,6 @@ class DailyDigestTest {
     private static EmailClassification classification(
             String id, Instant receivedAt, UpdateType updateType, String platform, boolean urgent) {
         return new EmailClassification(
-                id, receivedAt, "greenhouse.io", platform, null, null, updateType, null, urgent);
+                id, receivedAt, "greenhouse.io", platform, updateType, null, urgent);
     }
 }
