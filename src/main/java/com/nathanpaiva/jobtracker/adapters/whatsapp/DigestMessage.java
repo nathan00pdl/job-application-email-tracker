@@ -5,10 +5,9 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import com.nathanpaiva.jobtracker.domain.ActionNeeded;
@@ -141,9 +140,6 @@ final class DigestMessage {
                     "confirmação de inscrição", "confirmações de inscrição"),
             new Kind(UpdateType.OTHER, "sem categoria", "sem categoria"));
 
-    private static final Map<UpdateType, Kind> KIND_OF =
-            KINDS.stream().collect(Collectors.toMap(Kind::type, Function.identity()));
-
     private DigestMessage() {
     }
 
@@ -192,13 +188,13 @@ final class DigestMessage {
         values.add(period(digest, now));
         values.add(summary);
 
-        List<ActionNeeded> actions = digest.actions();
+        List<ActionNeeded> shown = newestFirst(digest.actions().subList(0, listed));
         for (int place = 0; place < PLACES; place++) {
-            values.add(place < listed ? item(actions.get(place)) : EMPTY_PLACE);
+            values.add(place < listed ? item(shown.get(place)) : EMPTY_PLACE);
         }
 
         // Just the number: the fixed text points at the spreadsheet in the next sentence.
-        int beyond = actions.size() - listed;
+        int beyond = digest.actions().size() - listed;
         values.add(beyond > 0 ? "mais " + beyond : NOTHING);
         values.add(SPREADSHEET.formatted(spreadsheetId));
 
@@ -254,27 +250,30 @@ final class DigestMessage {
     }
 
     /**
-     * "Entrevista · URGENTE · Gupy · 17/09 · https://mail.google.com/…" — enough to decide
-     * whether to open it now, and one tap to do so.
+     * The listed emails in the order they are shown: the newest at the top, as in Gmail.
+     *
+     * <p>Two orders, on purpose. The digest's own order — most important first — decides
+     * which emails get a place when there are more than fit. Once that is settled it has no
+     * more work to do: the line does not show the kind, so a list in order of importance
+     * would read as dates in no order at all.
+     */
+    private static List<ActionNeeded> newestFirst(List<ActionNeeded> listed) {
+        return listed.stream()
+                .sorted(Comparator.comparing(ActionNeeded::receivedAt).reversed())
+                .toList();
+    }
+
+    /**
+     * "Gupy · 17/09 · https://mail.google.com/…" — where it came from, when, and one tap
+     * to open it. What it says is for the email itself; the list only has to point at it.
      */
     private static String item(ActionNeeded action) {
-        List<String> parts = new ArrayList<>();
-        parts.add(capitalised(KIND_OF.get(action.updateType()).one()));
-        if (action.urgent()) {
-            parts.add("URGENTE");
-        }
-        parts.add(action.source());
-        parts.add(day(action.receivedAt()));
-        parts.add(GMAIL_MESSAGE + action.gmailMessageId());
-        return String.join(" · ", parts);
+        return String.join(" · ",
+                action.source(), day(action.receivedAt()), GMAIL_MESSAGE + action.gmailMessageId());
     }
 
     private static String day(Instant instant) {
         return DAY.format(instant.atZone(READER_ZONE).toLocalDate());
-    }
-
-    private static String capitalised(String text) {
-        return Character.toUpperCase(text.charAt(0)) + text.substring(1);
     }
 
     /**

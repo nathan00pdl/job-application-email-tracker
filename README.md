@@ -175,12 +175,16 @@ paragraphs, and those 874 characters left no room for a single email once the li
 spreadsheet was in: Meta refused the whole message.
 
 The point of the message is what needs doing, not how much arrived. An offer, an interview,
-a technical test, a request for information, or anything with a deadline is listed, most
-important first, as one line with a link that opens that email in Gmail:
+a technical test, a request for information, or anything with a deadline is listed as one
+line: where it came from, the day it arrived, and a link that opens that email in Gmail.
 
 ```
-Entrevista · URGENTE · Gupy · 17/09 · https://mail.google.com/mail/u/0/#all/<id>
+Gupy · 17/09 · https://mail.google.com/mail/u/0/#all/<id>
 ```
+
+The list reads newest first, as in Gmail. When there are more emails than places,
+importance decides which ones get a place — an offer before an interview, an interview
+before a request — and only then are they sorted by date.
 
 Confirmations and rejections are only counted: on a day of many applications they are most
 of the mail, and would bury the one email that matters. The template has six places;

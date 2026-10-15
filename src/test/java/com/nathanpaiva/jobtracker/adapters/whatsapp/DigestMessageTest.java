@@ -54,8 +54,8 @@ class DigestMessageTest {
         assertThat(template.values()).containsExactly(
                 "16/09 a 17/09",
                 "5 e-mails: 1 entrevista, 1 teste técnico, 1 recusa, 2 confirmações de inscrição",
-                "Entrevista · Gupy · 17/09 · " + GMAIL + "i1",
-                "Teste técnico · URGENTE · empresa.com.br · 16/09 · " + GMAIL + "t1",
+                "Gupy · 17/09 · " + GMAIL + "i1",
+                "empresa.com.br · 16/09 · " + GMAIL + "t1",
                 "—", "—", "—", "—",
                 "nenhum",
                 SHEET_LINK);
@@ -103,21 +103,45 @@ class DigestMessageTest {
 
         List<String> values = DigestMessage.forDigest(digest, SENT_AT, SHEET, NO_LIMIT).values();
 
-        assertThat(values.subList(2, 8)).allMatch(value -> value.startsWith("Entrevista · Gupy"));
+        assertThat(values.subList(2, 8)).allMatch(value -> value.startsWith("Gupy · 17/09 · "));
         assertThat(values.get(8)).isEqualTo("mais 6");
     }
 
-    /** The list follows the digest's own order, so the most important is always first. */
+    /**
+     * The line names no kind, so the list reads by date: the newest at the top, as in
+     * Gmail — even when an older email is the more important one.
+     */
     @Test
-    void keepsTheMostImportantInTheFirstPlace() {
+    void showsTheListedEmailsNewestFirst() {
         DailyDigest digest = DailyDigest.of(List.of(
-                classification("request", SEVENTEENTH, UpdateType.INFO_REQUEST, "bizneo.com", "Bizneo", false),
-                classification("offer", SEVENTEENTH, UpdateType.OFFER, "gupy.com.br", "Gupy", false)));
+                classification("offer", SIXTEENTH, UpdateType.OFFER, "gupy.com.br", "Gupy", false),
+                classification("request", SEVENTEENTH, UpdateType.INFO_REQUEST, "bizneo.com", "Bizneo", false)));
 
         List<String> values = DigestMessage.forDigest(digest, SENT_AT, SHEET, NO_LIMIT).values();
 
-        assertThat(values.get(2)).startsWith("Proposta · Gupy").endsWith("offer");
-        assertThat(values.get(3)).startsWith("Pedido de informação · Bizneo").endsWith("request");
+        assertThat(values.get(2)).isEqualTo("Bizneo · 17/09 · " + GMAIL + "request");
+        assertThat(values.get(3)).isEqualTo("Gupy · 16/09 · " + GMAIL + "offer");
+    }
+
+    /**
+     * Importance still decides who gets a place. Six newer requests and one older offer:
+     * the offer is listed, at the bottom because it is the oldest, and a request is the
+     * one counted in "mais 1".
+     */
+    @Test
+    void givesThePlacesToTheMostImportantBeforeSortingByDate() {
+        List<EmailClassification> classifications = new ArrayList<>(IntStream.range(0, 6)
+                .mapToObj(n -> classification("request" + n, SEVENTEENTH, UpdateType.INFO_REQUEST,
+                        "bizneo.com", "Bizneo", false))
+                .toList());
+        classifications.add(classification("offer", SIXTEENTH, UpdateType.OFFER, "gupy.com.br", "Gupy", false));
+
+        List<String> values = DigestMessage.forDigest(DailyDigest.of(classifications), SENT_AT, SHEET,
+                NO_LIMIT).values();
+
+        assertThat(values.get(7)).isEqualTo("Gupy · 16/09 · " + GMAIL + "offer");
+        assertThat(values.subList(2, 7)).allMatch(value -> value.startsWith("Bizneo · 17/09 · "));
+        assertThat(values.get(8)).isEqualTo("mais 1");
     }
 
     /**
@@ -155,7 +179,7 @@ class DigestMessageTest {
 
         assertThat(DigestMessage.lengthOf(values)).isLessThanOrEqualTo(DigestMessage.MAX_LENGTH);
         assertThat(values.get(1)).isEqualTo("2 e-mails: 1 pedido de informação, 1 confirmação de inscrição");
-        assertThat(values.get(2)).startsWith("Pedido de informação · URGENTE · GeekHunter");
+        assertThat(values.get(2)).startsWith("GeekHunter · 17/09 · ");
         assertThat(values.get(8)).isEqualTo("nenhum");
     }
 
@@ -224,8 +248,8 @@ class DigestMessageTest {
 
         List<String> values = DigestMessage.forDigest(digest, SENT_AT, SHEET, roomForTwo).values();
 
-        assertThat(values.get(2)).startsWith("Proposta");
-        assertThat(values.get(3)).startsWith("Teste técnico");
+        assertThat(values.get(2)).endsWith("offer");
+        assertThat(values.get(3)).endsWith("test");
         assertThat(values.get(4)).isEqualTo("—");
         assertThat(values.get(8)).isEqualTo("mais 1");
     }
@@ -258,7 +282,7 @@ class DigestMessageTest {
                 UpdateType.INTERVIEW_INVITE, "gupy.com.br", "Gupy\nTalentos\t   SP", false)));
 
         assertThat(DigestMessage.forDigest(digest, SENT_AT, SHEET, NO_LIMIT).values().get(2))
-                .startsWith("Entrevista · Gupy Talentos SP · ");
+                .startsWith("Gupy Talentos SP · ");
     }
 
     /** The counts blank of a digest holding this many emails of every kind. */
