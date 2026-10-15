@@ -28,7 +28,7 @@ import java.util.TreeSet;
  * <p><b>It carries no text taken from an email</b> — no subject and no body. That is
  * deliberate: a digest is meant to be logged, and the project logs metadata only. Leaving
  * the text out means logging one can never leak the content of a mailbox, rather than
- * relying on the caller to be careful. The emails that ask for action do carry their
+ * relying on the caller to be careful. The emails worth opening do carry their
  * Gmail id, so the reader can be pointed straight at them; an id means nothing without
  * access to the mailbox, and the project already logs ids for that reason.
  *
@@ -47,7 +47,7 @@ import java.util.TreeSet;
  *                     classification whose platform could not be told is left out
  * @param earliest     when the oldest of them arrived; null when the digest is empty
  * @param latest       when the newest of them arrived; null when the digest is empty
- * @param actions      the ones that wait on the reader, most important first; every one
+ * @param actions      the ones worth opening, most important first; every one
  *                     of them is also counted in the totals above
  */
 public record DailyDigest(
@@ -62,8 +62,9 @@ public record DailyDigest(
 
     /**
      * The order a reader should work through the list: an offer before an interview, an
-     * interview before a test, a test before a request for information, and anything else
-     * that is only urgent after all of those.
+     * interview before a test, a test before a request for information, and everything
+     * else — an email the classifier could not name, or one that is only urgent — after
+     * all of those.
      *
      * <p>Within the same kind, the urgent ones come first, and then the oldest — it has
      * been waiting longest.

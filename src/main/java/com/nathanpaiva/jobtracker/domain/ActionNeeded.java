@@ -5,7 +5,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * One email that asks the reader to do something, as the digest lists it.
+ * One email worth opening, as the digest lists it.
  *
  * <p>It carries what is needed to find the email and decide whether to open it now — the
  * kind of news, who sent it, when it arrived, whether it is urgent — and the Gmail id, so
@@ -39,12 +39,12 @@ public record ActionNeeded(
     }
 
     /**
-     * The action a classification calls for, or nothing if it calls for none: it has to be
-     * a kind that asks for action, or be urgent whatever its kind.
+     * The entry a classification gets in the list, or nothing if it gets none: it has to
+     * be a kind worth opening, or be urgent whatever its kind.
      */
     static Optional<ActionNeeded> of(EmailClassification classification) {
         Objects.requireNonNull(classification, "classification must not be null");
-        if (!classification.updateType().asksForAction() && !classification.urgent()) {
+        if (!classification.updateType().isWorthOpening() && !classification.urgent()) {
             return Optional.empty();
         }
         String platform = classification.platform();
