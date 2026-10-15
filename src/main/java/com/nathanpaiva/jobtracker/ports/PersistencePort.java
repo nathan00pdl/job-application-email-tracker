@@ -82,7 +82,12 @@ public interface PersistencePort {
     void markSentInDigest(Collection<String> gmailMessageIds, Instant sentAt);
 
     /**
-     * When a scan last finished reading the mailbox, if one ever did.
+     * Where the last scan that finished reading the mailbox began, if one ever did.
+     *
+     * <p>Began, not ended, despite the name of the column: {@code completed_at} records
+     * that a scan completed, and the instant it holds is the one the reading started. An
+     * email that arrives while a scan is running is not in the answer Gmail already gave,
+     * and starting the next scan from the end would step over it.
      *
      * <p>This is what tells the next run where to start looking. Asking the database
      * rather than counting back a fixed number of hours is what makes a gap of any length
@@ -95,7 +100,8 @@ public interface PersistencePort {
     Optional<Instant> lastCompletedScan();
 
     /**
-     * Records that a scan finished reading the mailbox.
+     * Records that a scan finished reading the mailbox, under the instant its reading
+     * started — see {@link #lastCompletedScan()}.
      *
      * <p>Called when the reading is done, not when the whole run is — the two are not
      * the same. Emails that have been read and stored are safe, and a later failure

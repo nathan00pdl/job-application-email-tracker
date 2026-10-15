@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -119,7 +120,7 @@ final class GmailMessageMapper {
             end++;
         }
 
-        String domain = rest.substring(0, end).toLowerCase(java.util.Locale.ROOT);
+        String domain = rest.substring(0, end).toLowerCase(Locale.ROOT);
         if (domain.isBlank()) {
             throw new IllegalArgumentException("From header has no domain");
         }
