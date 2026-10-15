@@ -27,8 +27,9 @@ spring:
     # An empty database must run V1 from the start.
     baseline-on-migrate: false
 
-# Credentials for reading the mailbox. No default values on purpose: a deployment
-# missing one fails at startup instead of failing later against Google.
+# Credentials for reading the mailbox. No default values on purpose. A placeholder with no
+# variable behind it does not stop Spring — the property just keeps the "${...}" text — so
+# GmailProperties checks each one and refuses to start without it.
 gmail:
   client-id: ${GMAIL_CLIENT_ID}
   client-secret: ${GMAIL_CLIENT_SECRET}
@@ -51,8 +52,9 @@ google:
     spreadsheet-id: ${GOOGLE_SHEETS_SPREADSHEET_ID}
     sheet-name: ${GOOGLE_SHEETS_SHEET_NAME:classifications}
 
-# Where the daily digest goes. The first three have no default either: a deployment
-# missing one fails at startup, not at the end of a run. The recipient is a secret too,
+# Where the daily digest goes. The first three have no default either, and
+# WhatsAppProperties checks them the same way: a deployment missing one stops at startup,
+# not at the end of a run. The recipient is a secret too,
 # because it is a personal phone number.
 whatsapp:
   access-token: ${WHATSAPP_ACCESS_TOKEN}
