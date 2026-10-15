@@ -23,7 +23,7 @@ import java.util.Optional;
  * @param receivedAt     when the email arrived
  * @param urgent         whether the email asks for something time-sensitive
  */
-public record ActionNeeded(
+public record EmailToOpen(
         String gmailMessageId,
         UpdateType updateType,
         String source,
@@ -31,7 +31,7 @@ public record ActionNeeded(
         boolean urgent
 ) {
 
-    public ActionNeeded {
+    public EmailToOpen {
         requireText(gmailMessageId, "gmailMessageId");
         Objects.requireNonNull(updateType, "updateType must not be null");
         requireText(source, "source");
@@ -42,7 +42,7 @@ public record ActionNeeded(
      * The entry a classification gets in the list, or nothing if it gets none: it has to
      * be a kind worth opening, or be urgent whatever its kind.
      */
-    static Optional<ActionNeeded> of(EmailClassification classification) {
+    static Optional<EmailToOpen> of(EmailClassification classification) {
         Objects.requireNonNull(classification, "classification must not be null");
         if (!classification.updateType().isWorthOpening() && !classification.urgent()) {
             return Optional.empty();
@@ -51,7 +51,7 @@ public record ActionNeeded(
         String source = platform != null && !platform.isBlank()
                 ? platform
                 : classification.senderDomain();
-        return Optional.of(new ActionNeeded(
+        return Optional.of(new EmailToOpen(
                 classification.gmailMessageId(), classification.updateType(), source,
                 classification.receivedAt(), classification.urgent()));
     }

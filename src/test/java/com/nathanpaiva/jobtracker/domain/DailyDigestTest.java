@@ -124,7 +124,7 @@ class DailyDigestTest {
         assertThat(digest.platforms()).isEmpty();
         assertThat(digest.earliest()).isNull();
         assertThat(digest.latest()).isNull();
-        assertThat(digest.actions()).isEmpty();
+        assertThat(digest.toOpen()).isEmpty();
         assertThat(digest).isEqualTo(DailyDigest.empty());
     }
 
@@ -198,7 +198,7 @@ class DailyDigestTest {
                 classification("interview", NOON, UpdateType.INTERVIEW_INVITE, "Gupy", false),
                 classification("form", NOON, UpdateType.INFO_REQUEST, "Bizneo", false)));
 
-        assertThat(digest.actions()).extracting(ActionNeeded::gmailMessageId)
+        assertThat(digest.toOpen()).extracting(EmailToOpen::gmailMessageId)
                 .containsExactlyInAnyOrder("interview", "form", "other");
         assertThat(digest.total()).isEqualTo(5);
     }
@@ -209,7 +209,7 @@ class DailyDigestTest {
         DailyDigest digest = DailyDigest.of(List.of(
                 classification("deadline", NOON, UpdateType.APPLICATION_RECEIVED, "Gupy", true)));
 
-        assertThat(digest.actions()).extracting(ActionNeeded::gmailMessageId)
+        assertThat(digest.toOpen()).extracting(EmailToOpen::gmailMessageId)
                 .containsExactly("deadline");
     }
 
@@ -230,7 +230,7 @@ class DailyDigestTest {
                 classification("offer", EVENING, UpdateType.OFFER, "Gupy", false),
                 classification("unnamed", MORNING, UpdateType.OTHER, "Gupy", false)));
 
-        assertThat(digest.actions()).extracting(ActionNeeded::gmailMessageId).containsExactly(
+        assertThat(digest.toOpen()).extracting(EmailToOpen::gmailMessageId).containsExactly(
                 "offer", "urgent-interview", "early-interview", "late-interview", "test",
                 "request", "urgent-confirmation", "unnamed");
     }
@@ -246,18 +246,18 @@ class DailyDigestTest {
                 new EmailClassification("domain", NOON, "empresa.com.br", null,
                         UpdateType.TECHNICAL_TEST, null, false)));
 
-        assertThat(digest.actions()).extracting(ActionNeeded::source)
+        assertThat(digest.toOpen()).extracting(EmailToOpen::source)
                 .containsExactly("Gupy", "empresa.com.br");
     }
 
     @Test
-    void cannotListMoreActionsThanEmails() {
-        ActionNeeded action = new ActionNeeded("a", UpdateType.OFFER, "Gupy", NOON, false);
+    void cannotListMoreEmailsToOpenThanEmails() {
+        EmailToOpen email = new EmailToOpen("a", UpdateType.OFFER, "Gupy", NOON, false);
 
         assertThatThrownBy(() -> new DailyDigest(1, Map.of(UpdateType.OFFER, 1), 0, List.of(),
-                NOON, NOON, List.of(action, action)))
+                NOON, NOON, List.of(email, email)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("actions");
+                .hasMessageContaining("toOpen");
     }
 
     private static EmailClassification classification(

@@ -205,7 +205,7 @@ public class RunDailyScanUseCase {
             log.info("digest: {} classifications from {} to {}, {} urgent, {} listed, "
                             + "by type {}, platforms {}",
                     digest.total(), digest.earliest(), digest.latest(), digest.urgent(),
-                    digest.actions().size(), digest.countsByType(), digest.platforms());
+                    digest.toOpen().size(), digest.countsByType(), digest.platforms());
         }
 
         notification.send(digest);

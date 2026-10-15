@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import com.nathanpaiva.jobtracker.domain.ActionNeeded;
+import com.nathanpaiva.jobtracker.domain.EmailToOpen;
 import com.nathanpaiva.jobtracker.domain.DailyDigest;
 import com.nathanpaiva.jobtracker.domain.UpdateType;
 
@@ -158,43 +158,40 @@ final class DigestMessage {
      * The same, against a limit of the caller's choosing — so a test can check what the
      * list holds and in what order without the limit of today's text deciding it.
      *
-     * <p>What gives way, in the order that loses least: first the listed emails, the least
-     * important one at a time, each counted in "além desses" so nothing that waits on the
-     * reader goes unmentioned; then, if the message still does not fit with none listed,
-     * the counts by kind, leaving just how many arrived. The period, the total and the
-     * link to the spreadsheet always stay.
+     * <p>What gives way is the list, the least important email at a time, each one
+     * counted in "além desses" so nothing worth opening goes unmentioned. Nothing else
+     * has to: with no email listed, the busiest message this text can carry — every kind
+     * counted, a period of several days — is under 400 characters. A test checks that
+     * against the real limit, so a longer template cannot make it untrue in silence.
      */
     static Template forDigest(DailyDigest digest, Instant now, String spreadsheetId, int maxLength) {
         Objects.requireNonNull(digest, "digest must not be null");
         Objects.requireNonNull(now, "now must not be null");
         Objects.requireNonNull(spreadsheetId, "spreadsheetId must not be null");
 
-        int listed = Math.min(digest.actions().size(), PLACES);
-        List<String> values = values(digest, now, spreadsheetId, listed, summary(digest));
+        int listed = Math.min(digest.toOpen().size(), PLACES);
+        List<String> values = values(digest, now, spreadsheetId, listed);
         while (listed > 0 && lengthOf(values) > maxLength) {
             listed--;
-            values = values(digest, now, spreadsheetId, listed, summary(digest));
-        }
-        if (lengthOf(values) > maxLength) {
-            values = values(digest, now, spreadsheetId, 0, howMany(digest));
+            values = values(digest, now, spreadsheetId, listed);
         }
         return new Template(TEMPLATE, values);
     }
 
-    /** The ten values, with the first {@code listed} actions in their places. */
+    /** The ten values, with the first {@code listed} emails to open in their places. */
     private static List<String> values(DailyDigest digest, Instant now, String spreadsheetId,
-                                       int listed, String summary) {
+                                       int listed) {
         List<String> values = new ArrayList<>();
         values.add(period(digest, now));
-        values.add(summary);
+        values.add(summary(digest));
 
-        List<ActionNeeded> shown = newestFirst(digest.actions().subList(0, listed));
+        List<EmailToOpen> shown = newestFirst(digest.toOpen().subList(0, listed));
         for (int place = 0; place < PLACES; place++) {
             values.add(place < listed ? item(shown.get(place)) : EMPTY_PLACE);
         }
 
         // Just the number: the fixed text points at the spreadsheet in the next sentence.
-        int beyond = digest.actions().size() - listed;
+        int beyond = digest.toOpen().size() - listed;
         values.add(beyond > 0 ? "mais " + beyond : NOTHING);
         values.add(SPREADSHEET.formatted(spreadsheetId));
 
@@ -229,18 +226,18 @@ final class DigestMessage {
                 : DAY.format(first) + " a " + DAY.format(last);
     }
 
-    /** "2 entrevistas, 10 confirmações de inscrição", naming only the kinds that occurred. */
     /** "14 e-mails: 2 entrevistas, 10 confirmações de inscrição". */
     private static String summary(DailyDigest digest) {
         String counted = byKind(digest);
         return counted.equals(NOTHING) ? howMany(digest) : howMany(digest) + ": " + counted;
     }
 
-    /** Just how many arrived — what is left when the kinds do not fit beside them. */
+    /** Just how many arrived: "1 e-mail", "14 e-mails". */
     private static String howMany(DailyDigest digest) {
         return digest.total() == 1 ? "1 e-mail" : digest.total() + " e-mails";
     }
 
+    /** "2 entrevistas, 10 confirmações de inscrição", naming only the kinds that occurred. */
     private static String byKind(DailyDigest digest) {
         String counted = KINDS.stream()
                 .filter(kind -> digest.countOf(kind.type()) > 0)
@@ -257,9 +254,9 @@ final class DigestMessage {
      * more work to do: the line does not show the kind, so a list in order of importance
      * would read as dates in no order at all.
      */
-    private static List<ActionNeeded> newestFirst(List<ActionNeeded> listed) {
+    private static List<EmailToOpen> newestFirst(List<EmailToOpen> listed) {
         return listed.stream()
-                .sorted(Comparator.comparing(ActionNeeded::receivedAt).reversed())
+                .sorted(Comparator.comparing(EmailToOpen::receivedAt).reversed())
                 .toList();
     }
 
@@ -267,9 +264,9 @@ final class DigestMessage {
      * "Gupy · 17/09 · https://mail.google.com/…" — where it came from, when, and one tap
      * to open it. What it says is for the email itself; the list only has to point at it.
      */
-    private static String item(ActionNeeded action) {
+    private static String item(EmailToOpen email) {
         return String.join(" · ",
-                action.source(), day(action.receivedAt()), GMAIL_MESSAGE + action.gmailMessageId());
+                email.source(), day(email.receivedAt()), GMAIL_MESSAGE + email.gmailMessageId());
     }
 
     private static String day(Instant instant) {
