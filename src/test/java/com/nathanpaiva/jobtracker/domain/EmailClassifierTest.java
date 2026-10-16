@@ -230,6 +230,18 @@ class EmailClassifierTest {
     }
 
     /**
+     * A marketing address is matched like every other list of domains here: itself or
+     * any subdomain of it. It used to be the one list compared exactly, so a sender one
+     * level further down would have proved an application on the platform's name alone.
+     */
+    @Test
+    void treatsASubdomainOfAMarketingAddressAsMarketing() {
+        assertThat(classify("eventos.inbound.gupy.com.br", "Convite | Batalha de Agentes",
+                "Um evento para desenvolvedores. Garanta seu lugar."))
+                .isEmpty();
+    }
+
+    /**
      * Two real subjects that no domain can reach: one from the company itself, one from
      * a job board. A job board proves nothing by design — it writes to everybody — so
      * both depend entirely on the words.

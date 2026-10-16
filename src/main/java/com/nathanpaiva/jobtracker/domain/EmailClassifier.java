@@ -57,7 +57,8 @@ public final class EmailClassifier {
      *
      * <p>They have to be named because domains are matched by suffix: {@code gupy.com.br}
      * in the map above also matches {@code inbound.gupy.com.br}, and that is where Gupy
-     * sends the mail it writes to everybody. A separate sending subdomain for marketing
+     * sends the mail it writes to everybody. They are matched the same way, so a
+     * subdomain of one of these is marketing too. A separate sending subdomain for marketing
      * is a common convention, and it is the only signal separating the two here.
      *
      * <p>Being listed stops the address from <em>proving</em> anything. It is not a veto:
@@ -181,7 +182,6 @@ public final class EmailClassifier {
 
     public Optional<EmailClassification> classify(IncomingEmail email) {
         String text = normalize(email.subject() + " " + email.body());
-        String platform = platformOf(email.senderDomain());
 
         if (!isAboutAnApplication(text, email.senderDomain())) {
             return Optional.empty();
@@ -191,7 +191,7 @@ public final class EmailClassifier {
                 email.gmailMessageId(),
                 email.receivedAt(),
                 email.senderDomain(),
-                platform,
+                platformOf(email.senderDomain()),
                 updateTypeOf(text),
                 subjectOf(email),
                 isUrgent(text)));
@@ -210,8 +210,8 @@ public final class EmailClassifier {
         if (ADVERT_PHRASES.stream().anyMatch(text::contains)) {
             return false;
         }
-        boolean provenByTheSender = nameFrom(ATS_BY_DOMAIN, senderDomain) != null
-                && !MARKETING_ADDRESSES.contains(normalize(senderDomain));
+        boolean provenByTheSender = isOneOf(ATS_BY_DOMAIN.keySet(), senderDomain)
+                && !isOneOf(MARKETING_ADDRESSES, senderDomain);
 
         String withoutFooter = withoutFooter(text);
         return provenByTheSender
@@ -238,11 +238,7 @@ public final class EmailClassifier {
         return URGENCY_PHRASES.stream().anyMatch(text::contains);
     }
 
-    /**
-     * Matches the domain and any subdomain of it. The dot is part of the comparison on
-     * purpose: without it, {@code notgreenhouse.io} would match too, and a classifier
-     * that quietly accepts lookalike domains is worse than one that misses them.
-     */
+    /** The hiring platform's name, or the job board's, or null when it is neither. */
     private static String platformOf(String senderDomain) {
         String ats = nameFrom(ATS_BY_DOMAIN, senderDomain);
         return ats != null ? ats : nameFrom(JOB_BOARD_BY_DOMAIN, senderDomain);
@@ -251,18 +247,26 @@ public final class EmailClassifier {
     /** Whether the sender is one of these domains, or a subdomain of one. */
     private static boolean isOneOf(Set<String> domains, String senderDomain) {
         String domain = normalize(senderDomain);
-        return domains.stream()
-                .anyMatch(known -> domain.equals(known) || domain.endsWith("." + known));
+        return domains.stream().anyMatch(known -> isDomainOrSubdomain(domain, known));
     }
 
     private static String nameFrom(Map<String, String> byDomain, String senderDomain) {
         String domain = normalize(senderDomain);
         return byDomain.entrySet().stream()
-                .filter(entry -> domain.equals(entry.getKey())
-                        || domain.endsWith("." + entry.getKey()))
+                .filter(entry -> isDomainOrSubdomain(domain, entry.getKey()))
                 .map(Map.Entry::getValue)
                 .findFirst()
                 .orElse(null);
+    }
+
+    /**
+     * The one rule every list of domains here is read by: the domain itself, or any
+     * subdomain of it. The dot is part of the comparison on purpose: without it,
+     * {@code notgreenhouse.io} would match {@code greenhouse.io}, and a classifier that
+     * quietly accepts lookalike domains is worse than one that misses them.
+     */
+    private static boolean isDomainOrSubdomain(String domain, String known) {
+        return domain.equals(known) || domain.endsWith("." + known);
     }
 
     /**
