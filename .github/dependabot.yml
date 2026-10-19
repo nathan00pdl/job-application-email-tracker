@@ -37,3 +37,12 @@ updates:
           - "github/codeql-action*"
     commit-message:
       prefix: ci
+
+  # The Semgrep version ci.yml installs. Without this entry it would be the one tool in
+  # the CI that never moves.
+  - package-ecosystem: pip
+    directory: "/.github/semgrep"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci

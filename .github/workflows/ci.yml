@@ -45,11 +45,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # pipx rather than pip: recent Ubuntu images refuse to install into the system
-      # Python, and pipx puts the tool in its own environment without the argument that
-      # overrides that protection.
+      # One exact version, read from a file Dependabot keeps current, so a new Semgrep
+      # release cannot change what this job does without a pull request saying so.
+      #
+      # A virtual environment rather than the system Python, which recent Ubuntu images
+      # refuse to install into. It lives outside the checkout, so Semgrep does not scan
+      # its own installation.
       - name: Install Semgrep
-        run: pipx install semgrep
+        run: |
+          python3 -m venv "$RUNNER_TEMP/semgrep"
+          "$RUNNER_TEMP/semgrep/bin/pip" install --requirement .github/semgrep/requirements.txt
+          echo "$RUNNER_TEMP/semgrep/bin" >> "$GITHUB_PATH"
 
       # Two curated rule sets, named explicitly. `--config auto` would pick them for us,
       # but it needs an account and reports usage back, and neither is wanted here.
