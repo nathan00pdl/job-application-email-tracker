@@ -1,11 +1,14 @@
 package com.nathanpaiva.jobtracker.domain;
 
 import java.text.Normalizer;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Decides whether an email is about a job application, and what it says.
@@ -19,6 +22,10 @@ import java.util.Set;
  * sentences every time — "recebemos sua candidatura", "infelizmente não seguiremos",
  * "gostaríamos de convidá-lo". Matching phrases against templated text is very different
  * from matching them against free-form writing.
+ *
+ * <p>A phrase is matched as whole words, never inside a longer one: "candidate se" is an
+ * advert's "candidate-se", not the start of "candidate selection". Where a word really
+ * does come in more than one form — "prazo" and "prazos" — each form is listed.
  *
  * <p>What it cannot do is read. It does not try to tell the company or the role, because
  * guessing those from phrases would produce values that look extracted but are not, and
@@ -106,7 +113,7 @@ public final class EmailClassifier {
      * made. Almost every phrase describing the act of applying also appears in adverts
      * inviting people to apply — so what is matched here is the answer, not the offer.
      */
-    private static final Set<String> APPLICATION_EVIDENCE = Set.of(
+    private static final Pattern APPLICATION_EVIDENCE = anyOf(Set.of(
             "recebemos sua candidatura", "recebemos sua inscricao",
             "sua candidatura foi", "sua candidatura para", "sobre sua candidatura",
             "status da sua candidatura", "andamento da sua candidatura",
@@ -121,7 +128,7 @@ public final class EmailClassifier {
             "we received your application", "we have received your application",
             "thank you for applying", "thank you for your application",
             "your application for", "your application has", "you applied",
-            "regarding your application", "application status");
+            "regarding your application", "application status"));
 
     /**
      * Phrases that mean the email is inviting someone to apply, not reporting on an
@@ -135,13 +142,13 @@ public final class EmailClassifier {
      * <p>The list is kept narrow for the same reason it exists. "Venha fazer parte" was
      * considered and rejected: it reads like an advert, but an offer letter says it too.
      */
-    private static final Set<String> ADVERT_PHRASES = Set.of(
+    private static final Pattern ADVERT_PHRASES = anyOf(Set.of(
             "inscreva-se", "inscreva se", "candidate-se", "candidate se",
             "vagas abertas", "confira as vagas", "conheca as vagas",
             "veja as vagas", "oportunidades abertas", "estamos contratando",
-            "apply now", "we are hiring", "we're hiring", "job alert",
+            "apply now", "we are hiring", "we're hiring", "job alert", "job alerts",
             "jobs for you", "this job is a match", "recommended for you",
-            "interesse em seu perfil", "interesse no seu perfil");
+            "interesse em seu perfil", "interesse no seu perfil"));
 
     /**
      * Sentences explaining why an email was sent. They are taken out of the text before
@@ -162,10 +169,10 @@ public final class EmailClassifier {
      * right to be kept: an email that carries the footer and real evidence elsewhere is
      * still kept.
      */
-    private static final Set<String> FOOTER_PHRASES = Set.of(
+    private static final Pattern FOOTER_PHRASES = anyOf(Set.of(
             "this email because you applied", "this email, because you applied",
             "this message because you applied",
-            "se candidatou recentemente a uma vaga");
+            "se candidatou recentemente a uma vaga"));
 
     /**
      * Read in this order, first match wins, and the order carries meaning. A rejection
@@ -173,12 +180,13 @@ public final class EmailClassifier {
      * names both. Reading them in order of finality keeps the specific outcomes from
      * being swallowed by the general ones.
      */
-    private static final Map<UpdateType, Set<String>> PHRASES_BY_TYPE = phrasesByType();
+    private static final Map<UpdateType, Pattern> PHRASES_BY_TYPE = phrasesByType();
 
-    private static final Set<String> URGENCY_PHRASES = Set.of(
-            "ate o dia", "ate sexta", "prazo", "confirme sua", "confirmar ate",
-            "o quanto antes", "urgente", "expira", "deadline", "as soon as possible",
-            "by friday", "confirm your", "expires");
+    private static final Pattern URGENCY_PHRASES = anyOf(Set.of(
+            "ate o dia", "ate sexta", "prazo", "prazos", "confirme sua", "confirme suas",
+            "confirmar ate", "o quanto antes", "urgente", "urgentes", "expira", "expiram",
+            "expirar", "deadline", "deadlines", "as soon as possible", "by friday",
+            "confirm your", "expires"));
 
     public Optional<EmailClassification> classify(IncomingEmail email) {
         String text = normalize(email.subject() + " " + email.body());
@@ -207,7 +215,7 @@ public final class EmailClassifier {
         if (isOneOf(NEVER_ABOUT_AN_APPLICATION, senderDomain)) {
             return false;
         }
-        if (ADVERT_PHRASES.stream().anyMatch(text::contains)) {
+        if (ADVERT_PHRASES.matcher(text).find()) {
             return false;
         }
         boolean provenByTheSender = isOneOf(ATS_BY_DOMAIN.keySet(), senderDomain)
@@ -215,27 +223,23 @@ public final class EmailClassifier {
 
         String withoutFooter = withoutFooter(text);
         return provenByTheSender
-                || APPLICATION_EVIDENCE.stream().anyMatch(withoutFooter::contains);
+                || APPLICATION_EVIDENCE.matcher(withoutFooter).find();
     }
 
     private static String withoutFooter(String text) {
-        String result = text;
-        for (String phrase : FOOTER_PHRASES) {
-            result = result.replace(phrase, " ");
-        }
-        return result;
+        return FOOTER_PHRASES.matcher(text).replaceAll(" ");
     }
 
     private static UpdateType updateTypeOf(String text) {
         return PHRASES_BY_TYPE.entrySet().stream()
-                .filter(entry -> entry.getValue().stream().anyMatch(text::contains))
+                .filter(entry -> entry.getValue().matcher(text).find())
                 .map(Map.Entry::getKey)
                 .findFirst()
                 .orElse(UpdateType.OTHER);
     }
 
     private static boolean isUrgent(String text) {
-        return URGENCY_PHRASES.stream().anyMatch(text::contains);
+        return URGENCY_PHRASES.matcher(text).find();
     }
 
     /** The hiring platform's name, or the job board's, or null when it is neither. */
@@ -295,22 +299,43 @@ public final class EmailClassifier {
                 .toLowerCase(Locale.ROOT);
     }
 
-    private static Map<UpdateType, Set<String>> phrasesByType() {
-        Map<UpdateType, Set<String>> phrases = new LinkedHashMap<>();
-        phrases.put(UpdateType.OFFER, Set.of(
-                "proposta", "oferta de trabalho", "carta oferta", "job offer",
-                "offer letter", "we are pleased to offer", "temos o prazer de oferecer"));
-        phrases.put(UpdateType.REJECTION, Set.of(
+    /**
+     * One pattern for a whole list: any of its phrases, as whole words.
+     *
+     * <p>{@code \b} is a word boundary, so a phrase has to start and end where a word
+     * does. {@link Pattern#quote} keeps each phrase literal, so a hyphen or an apostrophe
+     * in one is never read as part of the pattern's own syntax. The longest phrases are
+     * tried first, so when two start at the same place the longer one is what a footer
+     * removal takes out.
+     *
+     * <p>Built once, when the class loads, rather than on every email.
+     */
+    private static Pattern anyOf(Set<String> phrases) {
+        return Pattern.compile(phrases.stream()
+                .sorted(Comparator.comparingInt(String::length).reversed())
+                .map(Pattern::quote)
+                .collect(Collectors.joining("|", "\\b(?:", ")\\b")));
+    }
+
+    private static Map<UpdateType, Pattern> phrasesByType() {
+        Map<UpdateType, Pattern> phrases = new LinkedHashMap<>();
+        phrases.put(UpdateType.OFFER, anyOf(Set.of(
+                "proposta", "propostas", "oferta de trabalho", "carta oferta",
+                "job offer", "job offers", "offer letter", "we are pleased to offer",
+                "temos o prazer de oferecer")));
+        phrases.put(UpdateType.REJECTION, anyOf(Set.of(
                 "infelizmente", "nao seguiremos", "nao foi selecionado",
-                "seguimos com outro", "outro candidato", "nao teremos como avancar",
-                "unfortunately", "not moving forward", "will not be proceeding",
-                "decided to move forward with other", "processo seletivo foi descontinuado",
-                "nao seguira conosco", "decidimos nao seguir"));
+                "seguimos com outro", "seguimos com outros", "outro candidato",
+                "nao teremos como avancar", "unfortunately", "not moving forward",
+                "will not be proceeding", "decided to move forward with other",
+                "decided to move forward with others",
+                "processo seletivo foi descontinuado",
+                "nao seguira conosco", "decidimos nao seguir")));
         // Invitations, not the word. A confirmation names the interview as the next step —
         // "we will select candidates for screening interviews", "progressing to the
         // interview stage" — and with the bare word it was read as one, and listed as a
         // task the reader did not have.
-        phrases.put(UpdateType.INTERVIEW_INVITE, Set.of(
+        phrases.put(UpdateType.INTERVIEW_INVITE, anyOf(Set.of(
                 "convite para entrevista", "convite para uma entrevista",
                 "convida-lo para uma entrevista", "convida-la para uma entrevista",
                 "agendar uma entrevista", "agendar sua entrevista", "agendar a entrevista",
@@ -318,30 +343,33 @@ public final class EmailClassifier {
                 "conversa com", "bate-papo", "agendar um horario",
                 "invite you to an interview", "invite you for an interview",
                 "interview invitation", "schedule an interview", "schedule your interview",
-                "your interview", "schedule a call", "meet the team"));
-        phrases.put(UpdateType.TECHNICAL_TEST, Set.of(
+                "your interview", "schedule a call", "meet the team")));
+        phrases.put(UpdateType.TECHNICAL_TEST, anyOf(Set.of(
                 "teste tecnico", "desafio tecnico", "desafio de codigo", "code challenge",
-                "technical test", "take-home", "hackerrank", "codility",
+                "code challenges", "technical test", "technical tests", "take-home",
+                "hackerrank", "codility",
                 "completar seus testes", "complete seus testes",
                 // Not "assessment" on its own: a job board sends an "Assessment Report" with
                 // a score nobody has to do anything about.
-                "technical assessment", "coding assessment", "skills assessment",
-                "complete the assessment"));
+                "technical assessment", "technical assessments", "coding assessment",
+                "coding assessments", "skills assessment", "skills assessments",
+                "complete the assessment", "complete the assessments")));
         // A question about salary, not the word: a confirmation can repeat the expectation
         // the candidate already gave, and that asks nothing.
-        phrases.put(UpdateType.INFO_REQUEST, Set.of(
+        phrases.put(UpdateType.INFO_REQUEST, anyOf(Set.of(
                 "qual sua pretensao salarial", "qual a sua pretensao salarial",
                 "informe sua pretensao salarial", "informar sua pretensao salarial",
                 "confirme sua candidatura", "validar seu interesse",
                 "sua disponibilidade", "envie os documentos",
                 "precisamos de algumas informacoes", "preencha o formulario",
-                "salary expectation", "your availability", "fill out the form",
+                "salary expectation", "salary expectations", "your availability",
+                "fill out the form",
                 "we need some information", "complete sua inscricao",
                 "responda o questionario", "responder a um formulario",
-                "conclua sua inscricao", "concluir inscricao", "terminar sua inscricao"));
+                "conclua sua inscricao", "concluir inscricao", "terminar sua inscricao")));
         // Read last among the specific kinds: "sua candidatura para" also opens rejections,
         // invitations and tests, and every one of those is checked first.
-        phrases.put(UpdateType.APPLICATION_RECEIVED, Set.of(
+        phrases.put(UpdateType.APPLICATION_RECEIVED, anyOf(Set.of(
                 "recebemos sua candidatura", "recebemos sua inscricao",
                 "sua candidatura foi recebida", "candidatura registrada",
                 "we received your application", "thank you for applying",
@@ -352,7 +380,7 @@ public final class EmailClassifier {
                 "saber do seu interesse", "confirmacao de candidatura",
                 "sua inscricao para a vaga", "inscricao foi confirmada",
                 "obrigada pelo interesse", "obrigado pelo interesse",
-                "thanks for applying", "thanks again for applying"));
+                "thanks for applying", "thanks again for applying")));
         return phrases;
     }
 }
