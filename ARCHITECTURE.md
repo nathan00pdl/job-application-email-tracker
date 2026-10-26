@@ -63,6 +63,8 @@ Per-item failures (a single email failing classification) are caught and logged 
 
 `EmailClassifier` matches phrases against the subject and body, and reads the sender's domain.
 
+A phrase matches only as whole words, never inside a longer word: *"candidate se"* is an advert's *"candidate-se"*, not the start of *"candidate selection"*. Where a word comes in more than one form, such as *"prazo"* and *"prazos"*, each form is listed.
+
 This works because the emails are templates: hiring platforms send the same sentences every time — *"recebemos sua candidatura"*, *"infelizmente não seguiremos"*, *"gostaríamos de convidá-lo"*. Matching phrases against templated text is a different proposition from matching them against free-form writing, and this design would be a poor one in another domain.
 
 An email counts as being about an application when it either carries a phrase showing one exists, or comes from a known hiring platform. Those systems mostly write to people already in a process, but not only — a ninety-day read of real mail found Gupy sending its own marketing from the same domain as its application updates. Two things keep that out: advert phrases veto a message whatever its sender, and a short list of marketing sending addresses, such as `inbound.gupy.com.br`, stop the sender's domain from proving anything on its own. Evidence is also looked for with footers taken out: a sentence explaining why an email was sent — *"you have received this email because you applied for a job on our website"* — goes on everything a company sends to past applicants, so its *"you applied"* proves nothing. Being about a job is not the same as being about an application: a newsletter listing openings mentions vacancies on every line and is dropped.

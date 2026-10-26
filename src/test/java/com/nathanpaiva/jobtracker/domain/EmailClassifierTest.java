@@ -581,6 +581,73 @@ class EmailClassifierTest {
                 .isEmpty();
     }
 
+    /**
+     * A phrase counts only as whole words. Each of these holds a phrase inside a longer
+     * word, and was once read as if it said the phrase itself.
+     *
+     * <p>The first two are the costly kind. An advert phrase is a veto, so a rejection that
+     * mentioned the "candidate selection" process was thrown away as an advert, and a
+     * confirmation telling the reader to "se inscreva sempre" was too.
+     */
+    @Test
+    void doesNotReadAPhraseInsideALongerWord() {
+        assertThat(classify("acme.com", "Your application for Backend Developer",
+                "Unfortunately, after the candidate selection process, we are not moving forward."))
+                .get()
+                .extracting(EmailClassification::updateType)
+                .isEqualTo(UpdateType.REJECTION);
+
+        assertThat(classify("acme.com", "Recebemos sua candidatura",
+                "Acompanhe nossa página de carreiras e se inscreva sempre que quiser."))
+                .isPresent();
+
+        assertThat(classify("acme.com", "Recebemos sua candidatura para Executivo de Vendas",
+                "A vaga é focada em conversa comercial com clientes."))
+                .get()
+                .extracting(EmailClassification::updateType)
+                .isEqualTo(UpdateType.APPLICATION_RECEIVED);
+
+        assertThat(classify("acme.com", "Recebemos sua candidatura",
+                "Na nossa fábrica tem chocolate o dia todo."))
+                .get()
+                .extracting(EmailClassification::urgent)
+                .isEqualTo(false);
+    }
+
+    /**
+     * The other side of matching whole words: a phrase no longer catches its plural, or
+     * another tense, by accident. The forms that real emails use are listed, and these are
+     * the ones a substring search used to catch without saying so.
+     */
+    @ParameterizedTest(name = "\"{0}\" -> {1}")
+    @CsvSource({
+            "'Sua candidatura foi analisada: seguimos com outros candidatos', REJECTION",
+            "'Sobre sua candidatura: complete the technical assessments',     TECHNICAL_TEST",
+            "'Sobre sua candidatura: what are your salary expectations?',      INFO_REQUEST",
+            "'Sua candidatura foi aprovada: confira as propostas',             OFFER"
+    })
+    void stillHearsTheOtherFormsOfAPhrase(String subject, UpdateType expected) {
+        assertThat(classify("acme.com", subject))
+                .get()
+                .extracting(EmailClassification::updateType)
+                .isEqualTo(expected);
+    }
+
+    @Test
+    void stillHearsTheOtherFormsOfAnUrgentPhrase() {
+        assertThat(classify("acme.com", "Recebemos sua candidatura", "Fique atento aos prazos."))
+                .get()
+                .extracting(EmailClassification::urgent)
+                .isEqualTo(true);
+    }
+
+    @Test
+    void stillIgnoresJobAlertsInThePlural() {
+        assertThat(classify("acme.com", "Your job alerts for today",
+                "Thank you for your application. Here are new roles for you."))
+                .isEmpty();
+    }
+
     private Optional<EmailClassification> classify(String senderDomain, String subject) {
         return classify(senderDomain, subject, "corpo");
     }
